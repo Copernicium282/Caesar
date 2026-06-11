@@ -5,8 +5,9 @@ function cleanup() {
   stdin.pause();
 }
 
-function readPassword(promptText: string): Promise<string> {
+export function readPassword(promptText: string): Promise<string> {
   return new Promise((resolve) => {
+    stdin.resume();
     stdout.write(promptText);
     let inputBuffer = "";
     const onData = (key: string) => {
