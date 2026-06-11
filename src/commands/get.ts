@@ -6,40 +6,69 @@ import clipboard from "clipboardy";
 import { entry } from "../db/models/entry.js";
 import { promptMasterPassword } from "../utils/prompt.js";
 
-export async function getCommand(name: string, options: { show?: boolean }) {
+export async function getCommand(
+  name: string,
+  options: { show?: boolean; field?: string },
+) {
   try {
-    let MasterPwd = await promptMasterPassword();
     let cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
-    let key = await deriveKey(
-      MasterPwd,
-      Buffer.from(cfg.argon2_salt, "base64"),
-    );
+    if (options.field) {
+      await connectDB(cfg.mongodb_uri);
+      const pwdObj = await entry.findOne({ name: name }).lean();
+      if (pwdObj === null) {
+        console.log(`Entry not found: ${name}`);
+        process.exit(1);
+      }
 
-    const pwdObj = await entry.findOne({ name: name }).lean();
-    if (pwdObj === null) {
-      console.log(`Entry not found: ${name}`);
-      process.exit(1);
-    }
-    let decryptedPwd = decrypt(
-      {
-        ciphertext: pwdObj.encrypted_password,
-        iv: pwdObj.iv,
-        authTag: pwdObj.auth_tag,
-      },
-      key,
-    );
+      const field = options.field;
+      const f = new Set([
+        "name",
+        "username",
+        "url",
+        "notes",
+        "createdAt",
+        "updatedAt",
+      ]);
+      if (!f.has(field)) {
+        console.log(`Unknown field: ${options.field}`);
+        process.exit(1);
+      }
 
-    if (options.show === true) {
-      console.log(decryptedPwd);
+      console.log(pwdObj[field as keyof typeof pwdObj]);
     } else {
-      clipboard.writeSync(decryptedPwd);
-      console.log("Password copied to clipboard (clears in 30s)");
+      let MasterPwd = await promptMasterPassword();
+      await connectDB(cfg.mongodb_uri);
+      let key = await deriveKey(
+        MasterPwd,
+        Buffer.from(cfg.argon2_salt, "base64"),
+      );
 
-      // clear in 30s
-      setTimeout(() => {
-        clipboard.writeSync("");
-      }, 30000);
+      const pwdObj = await entry.findOne({ name: name }).lean();
+      if (pwdObj === null) {
+        console.log(`Entry not found: ${name}`);
+        process.exit(1);
+      }
+
+      let decryptedPwd = decrypt(
+        {
+          ciphertext: pwdObj.encrypted_password,
+          iv: pwdObj.iv,
+          authTag: pwdObj.auth_tag,
+        },
+        key,
+      );
+
+      if (options.show === true) {
+        console.log(decryptedPwd);
+      } else {
+        clipboard.writeSync(decryptedPwd);
+        console.log("Password copied to clipboard (clears in 30s)");
+
+        // clear in 30s
+        setTimeout(() => {
+          clipboard.writeSync("");
+        }, 30000);
+      }
     }
 
     await disconnectDB();

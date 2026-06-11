@@ -29,6 +29,10 @@ const add = program
 const get = program
   .command("get")
   .option("--show", "Print password to stdout instead of clipboard")
+  .option(
+    "--field <field>",
+    "Get a specific field (name, username, url, notes)",
+  )
   .argument("<name>", `Search name: `)
   .description("Retrieve a password")
   .action(getCommand);
