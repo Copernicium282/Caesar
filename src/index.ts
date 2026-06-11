@@ -4,6 +4,7 @@ import { addCommand } from "./commands/add.js";
 import { getCommand } from "./commands/get.js";
 import { listCommand } from "./commands/list.js";
 import { updateCommand } from "./commands/update.js";
+import { deleteCommand } from "./commands/delete.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -36,5 +37,11 @@ const update = program
   .argument("<name>", "Entry name")
   .description("Update an entry")
   .action(updateCommand);
+
+const del = program
+  .command("delete")
+  .argument("<name>", "Entry name")
+  .description("Delete an entry")
+  .action(deleteCommand);
 
 await program.parseAsync();
