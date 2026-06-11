@@ -9,12 +9,12 @@ import { entry } from "../db/models/entry.js";
 import { encrypt } from "../crypto/aes.js";
 
 export async function addCommand() {
-  const Masterpwd = await promptMasterPassword();
+  const MasterPwd = await promptMasterPassword();
   const cfg = loadConfig();
   try {
     await connectDB(cfg.mongodb_uri);
     const key = await deriveKey(
-      Masterpwd,
+      MasterPwd,
       Buffer.from(cfg.argon2_salt, "base64"),
     );
     const rl = createInterface(stdin, stdout);

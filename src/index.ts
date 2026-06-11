@@ -1,6 +1,7 @@
 import { program } from "commander";
 import { initCommand } from "./commands/init.js";
 import { addCommand } from "./commands/add.js";
+import { getCommand } from "./commands/get.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -16,5 +17,11 @@ const add = program
   .command("add")
   .description("Add a new entry")
   .action(addCommand);
+
+const get = program
+  .command("get")
+  .argument("<name>", `Search name: `)
+  .description("Retrieve a password")
+  .action(getCommand);
 
 await program.parseAsync();
