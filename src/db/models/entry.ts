@@ -9,6 +9,8 @@ export interface Ipwd {
   auth_tag: string;
   url: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const pwdSchema = new Schema<Ipwd>(

@@ -2,6 +2,7 @@ import { program } from "commander";
 import { initCommand } from "./commands/init.js";
 import { addCommand } from "./commands/add.js";
 import { getCommand } from "./commands/get.js";
+import { listCommand } from "./commands/list.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -23,5 +24,10 @@ const get = program
   .argument("<name>", `Search name: `)
   .description("Retrieve a password")
   .action(getCommand);
+
+const list = program
+  .command("list")
+  .description("Lists all entries")
+  .action(listCommand);
 
 await program.parseAsync();
