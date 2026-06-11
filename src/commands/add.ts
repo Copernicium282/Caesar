@@ -7,8 +7,9 @@ import { deriveKey } from "../crypto/argon2.js";
 import { readPassword } from "../utils/prompt.js";
 import { entry } from "../db/models/entry.js";
 import { encrypt } from "../crypto/aes.js";
+import { generatePassword } from "../utils/generate.js";
 
-export async function addCommand() {
+export async function addCommand(options: { generate?: string | boolean }) {
   const MasterPwd = await promptMasterPassword();
   const cfg = loadConfig();
   try {
@@ -31,11 +32,27 @@ export async function addCommand() {
     pwd.name = await rl.question("Enter Name: ");
     let pwdName = pwd.name;
     pwd.username = await rl.question("Enter Username: ");
-    let plainPwd = await readPassword(`Enter Password: `);
-    let encryptedPwd = encrypt(plainPwd, key);
-    pwd.encrypted_password = encryptedPwd.ciphertext;
-    pwd.iv = encryptedPwd.iv;
-    pwd.auth_tag = encryptedPwd.authTag;
+
+    let len: number | undefined = undefined;
+    if (options.generate === true) {
+      len = undefined;
+    } else if (typeof options.generate === "string") {
+      len = Number(options.generate);
+    }
+    if (options.generate) {
+      const plainPwd = await generatePassword(len);
+      let encryptedPwd = encrypt(plainPwd, key);
+      pwd.encrypted_password = encryptedPwd.ciphertext;
+      pwd.iv = encryptedPwd.iv;
+      pwd.auth_tag = encryptedPwd.authTag;
+    } else {
+      const plainPwd = await readPassword(`Enter Password: `);
+      let encryptedPwd = encrypt(plainPwd, key);
+      pwd.encrypted_password = encryptedPwd.ciphertext;
+      pwd.iv = encryptedPwd.iv;
+      pwd.auth_tag = encryptedPwd.authTag;
+    }
+
     pwd.url = await rl.question(`Enter URL: `);
     pwd.notes = await rl.question(`Enter Notes: `);
     await pwd.save();

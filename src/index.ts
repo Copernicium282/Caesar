@@ -19,6 +19,10 @@ const init = program
 
 const add = program
   .command("add")
+  .option(
+    "-g, --generate [length]",
+    "Generate a random password of configurable length",
+  )
   .description("Add a new entry")
   .action(addCommand);
 
