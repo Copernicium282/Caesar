@@ -6,7 +6,7 @@ import clipboard from "clipboardy";
 import { entry } from "../db/models/entry.js";
 import { promptMasterPassword } from "../utils/prompt.js";
 
-export async function getCommand(name: string) {
+export async function getCommand(name: string, options: { show?: boolean }) {
   try {
     let MasterPwd = await promptMasterPassword();
     let cfg = loadConfig();
@@ -29,13 +29,18 @@ export async function getCommand(name: string) {
       },
       key,
     );
-    clipboard.writeSync(decryptedPwd);
-    console.log("Password copied to clipboard (clears in 30s)");
 
-    // clear in 30s
-    setTimeout(() => {
-      clipboard.writeSync("");
-    }, 30000);
+    if (options.show === true) {
+      console.log(decryptedPwd);
+    } else {
+      clipboard.writeSync(decryptedPwd);
+      console.log("Password copied to clipboard (clears in 30s)");
+
+      // clear in 30s
+      setTimeout(() => {
+        clipboard.writeSync("");
+      }, 30000);
+    }
 
     await disconnectDB();
   } catch (error: unknown) {

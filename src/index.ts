@@ -28,6 +28,7 @@ const add = program
 
 const get = program
   .command("get")
+  .option("--show", "Print password to stdout instead of clipboard")
   .argument("<name>", `Search name: `)
   .description("Retrieve a password")
   .action(getCommand);
