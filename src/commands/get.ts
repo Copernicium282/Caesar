@@ -38,7 +38,7 @@ export async function getCommand(name: string) {
     }, 30000);
 
     await disconnectDB();
-  } catch (err) {
-    console.log(err);
+  } catch (error: unknown) {
+    console.log(error);
   }
 }

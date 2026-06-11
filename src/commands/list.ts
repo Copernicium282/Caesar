@@ -24,7 +24,7 @@ export async function listCommand() {
     );
 
     await disconnectDB();
-  } catch (err) {
-    console.log(err);
+  } catch (error: unknown) {
+    console.log(error);
   }
 }
