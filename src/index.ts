@@ -35,6 +35,7 @@ const get = program
 
 const list = program
   .command("list")
+  .option("--json", "Output as JSON")
   .description("Lists all entries")
   .action(listCommand);
 

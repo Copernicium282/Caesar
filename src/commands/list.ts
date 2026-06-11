@@ -2,7 +2,7 @@ import { loadConfig } from "../config/config.js";
 import { connectDB, disconnectDB } from "../db/connect.js";
 import { entry } from "../db/models/entry.js";
 
-export async function listCommand() {
+export async function listCommand(options: { json?: boolean }) {
   try {
     const cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
@@ -13,15 +13,19 @@ export async function listCommand() {
       process.exit(1);
     }
 
-    console.table(
-      list.map((e) => ({
-        Name: e.name,
-        Username: e.username,
-        URL: e.url,
-        Created: e.createdAt,
-        Last_Updated: e.updatedAt,
-      })),
-    );
+    if (options.json === true) {
+      console.log(JSON.stringify(list, null, 2));
+    } else {
+      console.table(
+        list.map((e) => ({
+          Name: e.name,
+          Username: e.username,
+          URL: e.url,
+          Created: e.createdAt,
+          Last_Updated: e.updatedAt,
+        })),
+      );
+    }
 
     await disconnectDB();
   } catch (error: unknown) {
