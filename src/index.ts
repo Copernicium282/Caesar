@@ -6,6 +6,8 @@ import { listCommand } from "./commands/list.js";
 import { updateCommand } from "./commands/update.js";
 import { deleteCommand } from "./commands/delete.js";
 import { searchCommand } from "./commands/search.js";
+import { backupSalt } from "./commands/backup-salt.js";
+import { restoreSalt } from "./commands/restore-salt.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -60,5 +62,17 @@ const search = program
   .argument("<query>", "Search term")
   .description("Search entries")
   .action(searchCommand);
+
+const backup_salt = program
+  .command("backup-salt")
+  .argument("<path>", "Path to save Salt Backup at")
+  .description("Save a Backup of salt at specified path")
+  .action(backupSalt);
+
+const restore_salt = program
+  .command("restore-salt")
+  .argument("<path>", "Path to Restore Salt Backup from")
+  .description("Restore salt from a Salt Backup at specified path")
+  .action(restoreSalt);
 
 await program.parseAsync();
