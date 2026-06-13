@@ -1,21 +1,17 @@
 import { loadConfig } from "../config/config.js";
-import { deriveKey } from "../crypto/argon2.js";
 import { connectDB, disconnectDB } from "../db/connect.js";
-import { promptMasterPassword, readPassword } from "../utils/prompt.js";
+import { readPassword } from "../utils/prompt.js";
 import { entry } from "../db/models/entry.js";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { encrypt } from "../crypto/aes.js";
+import { fetchKey } from "../utils/key.js";
 
 export async function updateCommand(name: string) {
   try {
-    const MasterPwd = await promptMasterPassword();
     const cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
-    const key = await deriveKey(
-      MasterPwd,
-      Buffer.from(cfg.argon2_salt, "base64"),
-    );
+    const key = await fetchKey(cfg);
 
     const pwd = await entry.findOne({ name: name });
     if (pwd === null) {

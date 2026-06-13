@@ -1,10 +1,9 @@
 import { loadConfig } from "../config/config.js";
 import { decrypt } from "../crypto/aes.js";
-import { deriveKey } from "../crypto/argon2.js";
 import { connectDB, disconnectDB } from "../db/connect.js";
 import clipboard from "clipboardy";
 import { entry } from "../db/models/entry.js";
-import { promptMasterPassword } from "../utils/prompt.js";
+import { fetchKey } from "../utils/key.js";
 
 const FIELD_WHITELIST = new Set([
   "name",
@@ -40,12 +39,8 @@ export async function getCommand(
 
       console.log(pwdObj[field as keyof typeof pwdObj]);
     } else {
-      let MasterPwd = await promptMasterPassword();
       await connectDB(cfg.mongodb_uri);
-      let key = await deriveKey(
-        MasterPwd,
-        Buffer.from(cfg.argon2_salt, "base64"),
-      );
+      const key = await fetchKey(cfg);
 
       const pwdObj = await entry.findOne({ name: name }).lean();
       if (pwdObj === null) {

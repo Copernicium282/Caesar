@@ -1,23 +1,18 @@
-import { promptMasterPassword } from "../utils/prompt.js";
 import { loadConfig } from "../config/config.js";
 import { connectDB, disconnectDB } from "../db/connect.js";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { deriveKey } from "../crypto/argon2.js";
 import { readPassword } from "../utils/prompt.js";
 import { entry } from "../db/models/entry.js";
 import { encrypt } from "../crypto/aes.js";
 import { generatePassword } from "../utils/generate.js";
+import { fetchKey } from "../utils/key.js";
 
 export async function addCommand(options: { generate?: string | boolean }) {
-  const MasterPwd = await promptMasterPassword();
   const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
+  const key = await fetchKey(cfg);
   try {
-    await connectDB(cfg.mongodb_uri);
-    const key = await deriveKey(
-      MasterPwd,
-      Buffer.from(cfg.argon2_salt, "base64"),
-    );
     const rl = createInterface(stdin, stdout);
     const pwd = await entry.create({
       name: "",
