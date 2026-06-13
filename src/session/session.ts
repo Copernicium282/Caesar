@@ -10,7 +10,10 @@ export interface SessionData {
   expires_at: string; // ISO 8601 timestamp
 }
 
-const SESSION_FILE_PATH = path.join(os.homedir(), "/.vaultchain/session.json");
+export const SESSION_FILE_PATH = path.join(
+  os.homedir(),
+  "/.vaultchain/session.json",
+);
 
 export function createSessionData(derivedKey: Buffer): {
   token: string;

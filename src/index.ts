@@ -8,6 +8,8 @@ import { deleteCommand } from "./commands/delete.js";
 import { searchCommand } from "./commands/search.js";
 import { backupSalt } from "./commands/backup-salt.js";
 import { restoreSalt } from "./commands/restore-salt.js";
+import { unlockCommand } from "./commands/unlock.js";
+import { lockCommand } from "./commands/lock.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -74,5 +76,15 @@ const restore_salt = program
   .argument("<path>", "Path to Restore Salt Backup from")
   .description("Restore salt from a Salt Backup at specified path")
   .action(restoreSalt);
+
+const unlock = program
+  .command("unlock")
+  .description("Unlock the vault and create a session")
+  .action(unlockCommand);
+
+const lock = program
+  .command("lock")
+  .description("Clear the current session")
+  .action(lockCommand);
 
 await program.parseAsync();
