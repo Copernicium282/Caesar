@@ -6,6 +6,15 @@ import clipboard from "clipboardy";
 import { entry } from "../db/models/entry.js";
 import { promptMasterPassword } from "../utils/prompt.js";
 
+const FIELD_WHITELIST = new Set([
+  "name",
+  "username",
+  "url",
+  "notes",
+  "createdAt",
+  "updatedAt",
+]);
+
 export async function getCommand(
   name: string,
   options: { show?: boolean; field?: string },
@@ -13,24 +22,19 @@ export async function getCommand(
   try {
     let cfg = loadConfig();
     if (options.field) {
-      await connectDB(cfg.mongodb_uri);
-      const pwdObj = await entry.findOne({ name: name }).lean();
-      if (pwdObj === null) {
-        console.log(`Entry not found: ${name}`);
+      const field = options.field;
+      if (!FIELD_WHITELIST.has(field)) {
+        console.error(
+          `Unknown field: ${options.field}\nAllowed fields are name, username, url, notes, createdAt, updatedAt`,
+        );
         process.exit(1);
       }
 
-      const field = options.field;
-      const f = new Set([
-        "name",
-        "username",
-        "url",
-        "notes",
-        "createdAt",
-        "updatedAt",
-      ]);
-      if (!f.has(field)) {
-        console.log(`Unknown field: ${options.field}`);
+      await connectDB(cfg.mongodb_uri);
+
+      const pwdObj = await entry.findOne({ name: name }).lean();
+      if (pwdObj === null) {
+        console.log(`Entry not found: ${name}`);
         process.exit(1);
       }
 
