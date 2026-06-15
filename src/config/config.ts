@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 
-const configPath = path.join(os.homedir(), "/.vaultchain/config.json");
+export const configPath = path.join(os.homedir(), "/.vaultchain/config.json");
 
 export function saveConfig(
   salt: string,

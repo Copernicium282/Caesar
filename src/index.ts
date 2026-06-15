@@ -10,6 +10,7 @@ import { backupSalt } from "./commands/backup-salt.js";
 import { restoreSalt } from "./commands/restore-salt.js";
 import { unlockCommand } from "./commands/unlock.js";
 import { lockCommand } from "./commands/lock.js";
+import { walletGenerate, walletAddress } from "./commands/wallet.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -86,5 +87,19 @@ const lock = program
   .command("lock")
   .description("Clear the current session")
   .action(lockCommand);
+
+const wallet = program
+  .command("wallet")
+  .description("Manage VaultChain Ethereum wallet");
+
+wallet
+  .command("generate")
+  .description("Generate a new wallet")
+  .action(walletGenerate);
+
+wallet
+  .command("address")
+  .description("Show wallet address")
+  .action(walletAddress);
 
 await program.parseAsync();
