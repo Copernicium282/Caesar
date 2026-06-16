@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 
 export function getRegistryContract(
-  provider: ethers.Provider,
+  wallet: ethers.Wallet,
   address: string,
 ): ethers.Contract {
   const REGISTRY_ABI = [
@@ -11,5 +11,5 @@ export function getRegistryContract(
     "event SnapshotCommitted(bytes32 indexed snapshotHash, uint256 timestamp, uint256 entryCount)",
   ];
 
-  return new ethers.Contract(address, REGISTRY_ABI, provider);
+  return new ethers.Contract(address, REGISTRY_ABI, wallet);
 }

@@ -6,14 +6,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const WALLET_FILE_PATH = path.join(os.homedir(), "/.vaultchain/wallet.json");
+export const WALLET_FILE_PATH = path.join(
+  os.homedir(),
+  "/.vaultchain/wallet.json",
+);
 
 export async function walletGenerate() {
   const cfg = loadConfig();
   const key = await fetchKey(cfg);
 
   const wallet = ethers.Wallet.createRandom();
-  const encryptedKey = encrypt(key.toString("hex"), key);
+  const encryptedKey = encrypt(wallet.privateKey, key);
 
   fs.writeFileSync(
     WALLET_FILE_PATH,

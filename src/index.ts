@@ -11,6 +11,7 @@ import { restoreSalt } from "./commands/restore-salt.js";
 import { unlockCommand } from "./commands/unlock.js";
 import { lockCommand } from "./commands/lock.js";
 import { walletGenerate, walletAddress } from "./commands/wallet.js";
+import { snapshotCommand } from "./commands/snapshot.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -101,5 +102,10 @@ wallet
   .command("address")
   .description("Show wallet address")
   .action(walletAddress);
+
+const snapshot = program
+  .command("snapshot")
+  .description("Commit a snapshot of the vault to the blockchain")
+  .action(snapshotCommand);
 
 await program.parseAsync();
