@@ -13,6 +13,7 @@ import { lockCommand } from "./commands/lock.js";
 import { walletGenerate, walletAddress } from "./commands/wallet.js";
 import { snapshotCommand } from "./commands/snapshot.js";
 import { verifyCommand } from "./commands/verify.js";
+import { serveCommand } from "./commands/serve.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -115,5 +116,10 @@ const verify = program
   .option("--remote", "Verify against Linea Sepolia instead of local")
   .description("Verify vault integrity against last committed snapshot")
   .action(verifyCommand);
+
+const serve = program
+  .command("serve")
+  .description("Start the VaultChain HTTP server for the browser extension")
+  .action(serveCommand);
 
 await program.parseAsync();
