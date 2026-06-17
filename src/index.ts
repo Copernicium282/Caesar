@@ -12,6 +12,7 @@ import { unlockCommand } from "./commands/unlock.js";
 import { lockCommand } from "./commands/lock.js";
 import { walletGenerate, walletAddress } from "./commands/wallet.js";
 import { snapshotCommand } from "./commands/snapshot.js";
+import { verifyCommand } from "./commands/verify.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -105,7 +106,14 @@ wallet
 
 const snapshot = program
   .command("snapshot")
+  .option("--remote", "Also commit to Linea Sepolia")
   .description("Commit a snapshot of the vault to the blockchain")
   .action(snapshotCommand);
+
+const verify = program
+  .command("verify")
+  .option("--remote", "Verify against Linea Sepolia instead of local")
+  .description("Verify vault integrity against last committed snapshot")
+  .action(verifyCommand);
 
 await program.parseAsync();
