@@ -2,5 +2,7 @@
 node_modules/
 cache/
 out/
+dist/
 
 package-lock.json
+*.log
