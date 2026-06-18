@@ -8,7 +8,10 @@ import { encrypt } from "../crypto/aes.js";
 import { generatePassword } from "../utils/generate.js";
 import { fetchKey } from "../utils/key.js";
 
-export async function addCommand(options: { generate?: string | boolean }) {
+export async function addCommand(options: {
+  generate?: string | boolean;
+  uri?: string[];
+}) {
   const cfg = loadConfig();
   await connectDB(cfg.mongodb_uri);
   const key = await fetchKey(cfg);
@@ -21,6 +24,7 @@ export async function addCommand(options: { generate?: string | boolean }) {
       iv: "",
       auth_tag: "",
       url: "",
+      uris: options.uri || [],
       notes: "",
     });
 

@@ -8,6 +8,7 @@ export interface Ipwd {
   iv: string;
   auth_tag: string;
   url: string;
+  uris?: string[];
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +22,7 @@ const pwdSchema = new Schema<Ipwd>(
     iv: { type: String, required: true },
     auth_tag: { type: String, required: true },
     url: { type: String, default: null },
+    uris: { type: [String], default: [] },
     notes: String,
   },
   {

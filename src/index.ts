@@ -31,6 +31,7 @@ const add = program
     "-g, --generate [length]",
     "Generate a random password of configurable length",
   )
+  .option("--uri <uri...>", "Domain URIs for this entry (repeatable)")
   .description("Add a new entry")
   .action(addCommand);
 
