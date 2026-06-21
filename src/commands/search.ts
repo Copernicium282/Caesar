@@ -9,8 +9,9 @@ export async function searchCommand(query: string) {
 
     const result = await entry
       .find({
+        deletedAt: null,
         $or: [
-          { name: { $regex: query, $options: "i" } }, // $options: "i" for case-insensitive
+          { name: { $regex: query, $options: "i" } },
           { username: { $regex: query, $options: "i" } },
           { url: { $regex: query, $options: "i" } },
           { notes: { $regex: query, $options: "i" } },

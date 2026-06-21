@@ -31,7 +31,7 @@ export async function getCommand(
 
       await connectDB(cfg.mongodb_uri);
 
-      const pwdObj = await entry.findOne({ name: name }).lean();
+      const pwdObj = await entry.findOne({ name: name, deletedAt: null }).lean();
       if (pwdObj === null) {
         console.log(`Entry not found: ${name}`);
         process.exit(1);
@@ -42,7 +42,7 @@ export async function getCommand(
       await connectDB(cfg.mongodb_uri);
       const key = await fetchKey(cfg);
 
-      const pwdObj = await entry.findOne({ name: name }).lean();
+      const pwdObj = await entry.findOne({ name: name, deletedAt: null }).lean();
       if (pwdObj === null) {
         console.log(`Entry not found: ${name}`);
         process.exit(1);

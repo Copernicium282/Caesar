@@ -7,7 +7,7 @@ export async function listCommand(options: { json?: boolean }) {
     const cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
 
-    const list = await entry.find({}).lean();
+    const list = await entry.find({ deletedAt: null }).lean();
     if (list.length === 0) {
       console.log("No entries found.");
       process.exit(1);

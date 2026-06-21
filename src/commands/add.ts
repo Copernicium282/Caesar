@@ -15,22 +15,11 @@ export async function addCommand(options: {
   const cfg = loadConfig();
   await connectDB(cfg.mongodb_uri);
   const key = await fetchKey(cfg);
-  try {
-    const rl = createInterface(stdin, stdout);
-    const pwd = await entry.create({
-      name: "",
-      username: "",
-      encrypted_password: "",
-      iv: "",
-      auth_tag: "",
-      url: "",
-      uris: options.uri || [],
-      notes: "",
-    });
+  const rl = createInterface(stdin, stdout);
 
-    pwd.name = await rl.question("Enter Name: ");
-    let pwdName = pwd.name;
-    pwd.username = await rl.question("Enter Username: ");
+  try {
+    const name = await rl.question("Enter Name: ");
+    const username = await rl.question("Enter Username: ");
 
     let len: number | undefined = undefined;
     if (options.generate === true) {
@@ -38,27 +27,34 @@ export async function addCommand(options: {
     } else if (typeof options.generate === "string") {
       len = Number(options.generate);
     }
+
+    let plainPwd: string;
     if (options.generate) {
-      const plainPwd = await generatePassword(len);
-      let encryptedPwd = encrypt(plainPwd, key);
-      pwd.encrypted_password = encryptedPwd.ciphertext;
-      pwd.iv = encryptedPwd.iv;
-      pwd.auth_tag = encryptedPwd.authTag;
+      plainPwd = await generatePassword(len);
+      console.log(`Generated password: ${plainPwd}`);
     } else {
-      const plainPwd = await readPassword(`Enter Password: `);
-      let encryptedPwd = encrypt(plainPwd, key);
-      pwd.encrypted_password = encryptedPwd.ciphertext;
-      pwd.iv = encryptedPwd.iv;
-      pwd.auth_tag = encryptedPwd.authTag;
+      plainPwd = await readPassword(`Enter Password: `);
     }
 
-    pwd.url = await rl.question(`Enter URL: `);
-    pwd.notes = await rl.question(`Enter Notes: `);
-    await pwd.save();
+    const url = await rl.question(`Enter URL: `);
+    const notes = await rl.question(`Enter Notes: `);
+
+    const encrypted = encrypt(plainPwd, key);
+    const createData: Record<string, unknown> = {
+      name,
+      username,
+      encrypted_password: encrypted.ciphertext,
+      iv: encrypted.iv,
+      auth_tag: encrypted.authTag,
+      uris: options.uri || [],
+    };
+    if (url) createData.url = url;
+    if (notes) createData.notes = notes;
+    await entry.create(createData);
 
     await disconnectDB();
-    console.log(`Entry saved: ${pwdName}`);
+    console.log(`Entry saved: ${name}`);
   } catch (error: unknown) {
-    console.log(error);
+    console.error(error);
   }
 }

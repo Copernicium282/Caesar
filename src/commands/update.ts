@@ -13,7 +13,7 @@ export async function updateCommand(name: string) {
     await connectDB(cfg.mongodb_uri);
     const key = await fetchKey(cfg);
 
-    const pwd = await entry.findOne({ name: name });
+    const pwd = await entry.findOne({ name: name, deletedAt: null });
     if (pwd === null) {
       console.log(`Entry not found: ${name}`);
       process.exit(1);

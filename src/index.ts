@@ -14,6 +14,8 @@ import { walletGenerate, walletAddress } from "./commands/wallet.js";
 import { snapshotCommand } from "./commands/snapshot.js";
 import { verifyCommand } from "./commands/verify.js";
 import { serveCommand } from "./commands/serve.js";
+import { exportCommand } from "./commands/export.js";
+import { importCommand } from "./commands/import.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -122,5 +124,19 @@ const serve = program
   .command("serve")
   .description("Start the VaultChain HTTP server for the browser extension")
   .action(serveCommand);
+
+const exportCmd = program
+  .command("export")
+  .option("-f, --format <format>", "Export format (json or csv)", "json")
+  .option("-o, --output <path>", "Output file path")
+  .description("Export vault to JSON or CSV")
+  .action(exportCommand);
+
+const importCmd = program
+  .command("import")
+  .option("-f, --format <format>", "Import format (json or csv)")
+  .argument("<input>", "Input file path")
+  .description("Import vault from JSON or CSV")
+  .action(importCommand);
 
 await program.parseAsync();

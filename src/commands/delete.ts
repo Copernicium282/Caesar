@@ -9,7 +9,7 @@ export async function deleteCommand(name: string) {
     let cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
 
-    const pwd = await entry.findOne({ name: name });
+    const pwd = await entry.findOne({ name: name, deletedAt: null });
     if (pwd === null) {
       console.log(`Entry not found: ${name}`);
       process.exit(1);
@@ -21,14 +21,15 @@ export async function deleteCommand(name: string) {
       "Are you sure you want to delete this entry? (y/N):",
     );
     if (choice === "y" || choice === "Y") {
-      await entry.deleteOne({ name: name });
+      pwd.deletedAt = new Date().toISOString();
+      await pwd.save();
     } else {
       console.log("Cancelled");
       process.exit(1);
     }
 
     await disconnectDB();
-    console.log(`Entry deleted: ${name}`);
+    console.log(`Entry deleted: ${name} (moved to trash)`);
   } catch (error: unknown) {
     console.error(error);
   }
