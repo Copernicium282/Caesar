@@ -38,7 +38,7 @@ async function updateBadge(tab) {
       text: count > 0 ? String(count) : "",
     });
     if (count > 0)
-      browser.action.setBadgeBackgroundColor({ color: "#6366f1" });
+      browser.action.setBadgeBackgroundColor({ color: "#c9a84c" });
   } catch {
     browser.action.setBadgeText({ text: "" });
   }
@@ -55,38 +55,77 @@ browser.tabs.onUpdated.addListener((_, c, t) => {
 browser.runtime.onInstalled.addListener(() => {
   browser.contextMenus.create({
     id: "vaultchain-fill",
-    title: "Fill with VaultChain",
+    title: "Fill with Caesar",
     contexts: ["editable"],
+  });
+  browser.contextMenus.create({
+    id: "vaultchain-save",
+    title: "Save to Caesar",
+    contexts: ["page"],
   });
 });
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== "vaultchain-fill" || !tab?.id) return;
-  try {
-    const data = await browser.storage.session.get("vaultchain_token");
-    const token = data.vaultchain_token;
-    if (!token || !tab.url) return;
-    const res = await fetch(
-      `${API_BASE}/entries/match?url=${encodeURIComponent(tab.url)}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!res.ok) return;
-    const result = await res.json();
-    const matched = result.matched || [];
-    if (matched.length === 0) return;
-    const entry = matched[0];
-    const pwRes = await fetch(
-      `${API_BASE}/entries/${encodeURIComponent(entry.name)}/password`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!pwRes.ok) return;
-    const { password } = await pwRes.json();
-    browser.tabs.sendMessage(tab.id, {
-      type: "FILL_CREDENTIALS",
-      username: entry.username,
-      password,
-    });
-  } catch {}
+  if (info.menuItemId === "vaultchain-fill" && tab?.id) {
+    try {
+      const data = await browser.storage.session.get("vaultchain_token");
+      const token = data.vaultchain_token;
+      if (!token || !tab.url) return;
+      const res = await fetch(
+        `${API_BASE}/entries/match?url=${encodeURIComponent(tab.url)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) return;
+      const result = await res.json();
+      const matched = result.matched || [];
+      if (matched.length === 0) return;
+      const entry = matched[0];
+      const pwRes = await fetch(
+        `${API_BASE}/entries/${encodeURIComponent(entry.name)}/password`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!pwRes.ok) return;
+      const { password } = await pwRes.json();
+      browser.tabs.sendMessage(tab.id, {
+        type: "FILL_CREDENTIALS",
+        username: entry.username,
+        password,
+      });
+    } catch {}
+  }
+
+  if (info.menuItemId === "vaultchain-save" && tab?.id) {
+    try {
+      const data = await browser.storage.session.get("vaultchain_token");
+      const token = data.vaultchain_token;
+      if (!token || !tab.url) return;
+
+      // Store the URL for the popup to pick up
+      await browser.storage.local.set({ pendingSaveUrl: tab.url });
+
+      // Try to show a notification on the page
+      try {
+        await browser.tabs.sendMessage(tab.id, {
+          type: "SHOW_SAVE_NOTIFICATION",
+          username: "",
+          password: "",
+          url: tab.url,
+        });
+      } catch {
+        // Content script not there — inject and try again
+        try {
+          await browser.scripting.executeScript({ target: { tabId: tab.id }, files: ["content/fill.js"] });
+          await new Promise(r => setTimeout(r, 300));
+          await browser.tabs.sendMessage(tab.id, {
+            type: "SHOW_SAVE_NOTIFICATION",
+            username: "",
+            password: "",
+            url: tab.url,
+          });
+        } catch {}
+      }
+    } catch {}
+  }
 });
 
 let idleTimer = null;
@@ -153,7 +192,7 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (!pw.ok) return;
         const { password } = await pw.json();
         const mr = await fetch(
-          `${API_BASE}/entries/match?url=${encodeURIComponent(sender.tab!.url || "")}`,
+          `${API_BASE}/entries/match?url=${encodeURIComponent((sender.tab && sender.tab.url) || "")}`,
           { headers: { Authorization: `Bearer ${t}` } }
         );
         if (!mr.ok) return;
@@ -168,6 +207,51 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch {}
     })();
     return true;
+  }
+
+  if (msg.type === "FILL_CREDENTIALS" && !sender.tab) {
+    (async () => {
+      try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const tabId = tabs[0]?.id;
+        if (!tabId) return;
+
+        // Try sending directly first
+        try {
+          await browser.tabs.sendMessage(tabId, { type: "FILL_CREDENTIALS", username: msg.username, password: msg.password });
+          return;
+        } catch (e) {
+          // Content script not there — inject it
+        }
+
+        // Inject content script
+        try {
+          await browser.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ["content/fill.js"],
+          });
+        } catch (e) {
+          // Fallback: inject via tabs API (MV2 compat)
+          try {
+            await browser.tabs.executeScript(tabId, { file: "content/fill.js" });
+          } catch (e2) {
+            console.error("[Caesar] All injection methods failed:", e, e2);
+            return;
+          }
+        }
+
+        // Wait for script to initialize, then send
+        await new Promise(r => setTimeout(r, 300));
+        try {
+          await browser.tabs.sendMessage(tabId, { type: "FILL_CREDENTIALS", username: msg.username, password: msg.password });
+        } catch (e) {
+          console.error("[Caesar] Send after injection failed:", e);
+        }
+      } catch (e) {
+        console.error("[Caesar] Fill error:", e);
+      }
+    })();
+    return false;
   }
 
   if (msg.type === "DETECT_LOGIN_SUBMIT" && sender.tab?.id) {

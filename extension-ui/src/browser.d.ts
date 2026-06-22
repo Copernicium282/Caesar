@@ -12,6 +12,11 @@ declare namespace browser {
       function remove(keys: string | string[]): Promise<void>;
       function setAccessLevel(opts: { accessLevel: string }): Promise<void>;
     }
+    namespace local {
+      function get(keys: string | string[]): Promise<Record<string, unknown>>;
+      function set(items: Record<string, unknown>): Promise<void>;
+      function remove(keys: string | string[]): Promise<void>;
+    }
   }
   namespace action {
     function setBadgeText(opts: { text: string; tabId?: number }): Promise<void>;

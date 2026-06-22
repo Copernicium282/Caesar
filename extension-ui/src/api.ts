@@ -287,3 +287,20 @@ export const importVault = (
   t: string,
 ): Promise<{ ok: boolean; created: number; skipped: number; errors: string[] }> =>
   apiPost("/import", { entries }, t);
+
+// Snapshot
+export const getSnapshotStatus = (
+  t: string,
+): Promise<{ hash: string; entryCount: number; timestamp: string }> =>
+  apiGet("/snapshot/status", t);
+
+export const commitSnapshot = (
+  t: string,
+): Promise<{ hash: string; entryCount: number; timestamp: string }> =>
+  apiPost("/snapshot", {}, t);
+
+export const verifySnapshot = (
+  hash: string,
+  t: string,
+): Promise<{ valid: boolean; currentHash: string; submittedHash: string }> =>
+  apiPost("/verify", { hash }, t);

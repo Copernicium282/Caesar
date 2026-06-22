@@ -898,6 +898,53 @@ app.get("/vault-health", async (_req, res) => {
   }
 });
 
+// ── Snapshot Status ──
+app.get("/snapshot/status", async (_req, res) => {
+  try {
+    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const formatted = allEntries.map(e => ({
+      name: e.name, username: e.username, url: e.url,
+      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+    }));
+    const snapshotHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
+    res.json({ hash: snapshotHash, entryCount: formatted.length, timestamp: new Date().toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to get snapshot status" });
+  }
+});
+
+// ── Snapshot Commit ──
+app.post("/snapshot", async (_req, res) => {
+  try {
+    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const formatted = allEntries.map(e => ({
+      name: e.name, username: e.username, url: e.url,
+      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+    }));
+    const snapshotHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
+    res.json({ hash: snapshotHash, entryCount: formatted.length, timestamp: new Date().toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to commit snapshot" });
+  }
+});
+
+// ── Snapshot Verify ──
+app.post("/verify", async (req, res) => {
+  try {
+    const { hash } = req.body || {};
+    if (!hash) return res.status(400).json({ error: "hash is required" });
+    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const formatted = allEntries.map(e => ({
+      name: e.name, username: e.username, url: e.url,
+      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+    }));
+    const currentHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
+    res.json({ valid: currentHash === hash, currentHash, submittedHash: hash });
+  } catch {
+    res.status(500).json({ error: "Failed to verify snapshot" });
+  }
+});
+
 // ── Export Vault ──
 app.post("/export", async (req, res) => {
   try {
