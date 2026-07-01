@@ -1,5 +1,5 @@
 import { Trash2, RotateCcw, X, AlertTriangle } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { TopBar, ServiceAvatar } from "./shared";
 import { useTrashLogic } from "../logic/useTrash";
 
@@ -7,6 +7,7 @@ export default function TrashView({ token, onBack, onRestore, onDelete }: {
   token: string; onBack: () => void; onRestore: (n: string) => void; onDelete: (n: string) => void;
 }) {
   const { entries, loading, handlePurge } = useTrashLogic(token);
+  const { palette: C } = useTheme();
 
   return (
     <div className="view-fade flex flex-col" style={{ height: "100%" }}>

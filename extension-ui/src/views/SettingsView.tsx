@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronRight, Folder, AlertCircle, Upload, Download, Trash2,
-  Clock, LogOut, Check, Key,
+  Clock, LogOut, Check, Key, Palette, Clipboard, Globe, ShieldCheck,
 } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme, type Theme } from "../shared/theme";
 import { type View } from "../shared/types";
 import { TopBar } from "./shared";
 import { useSettingsLogic } from "../logic/useSettings";
@@ -11,6 +11,7 @@ import { useFolderManagerLogic } from "../logic/useFolderManager";
 import { useHealthLogic } from "../logic/useHealth";
 
 function FolderManagerView({ token, onBack }: { token: string; onBack: () => void }) {
+  const { palette: C } = useTheme();
   const {
     folders, newName, setNewName, loading,
     editingId, setEditingId, editingName, setEditingName,
@@ -59,6 +60,7 @@ function FolderManagerView({ token, onBack }: { token: string; onBack: () => voi
 }
 
 function HealthView({ token, onBack }: { token: string; onBack: () => void }) {
+  const { palette: C } = useTheme();
   const { health, loading } = useHealthLogic(token);
 
   return (
@@ -122,10 +124,59 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
     showAutoLock, setShowAutoLock, folderList, autoLockMinutes,
     setAutoLock, handleChangePassword, handleExport, handleImport,
   } = useSettingsLogic(token, onLock);
+  const { palette: C, theme, setTheme, clipboardClearMs, setClipboardClearMs } = useTheme();
+
+  const [showAppearance, setShowAppearance] = useState(false);
+  const [showExcludedDomains, setShowExcludedDomains] = useState(false);
+  const [repromptEnabled, setRepromptEnabled] = useState(false);
+  const [excludedDomains, setExcludedDomains] = useState<string[]>([]);
+  const [newDomain, setNewDomain] = useState("");
+
+  useEffect(() => {
+    browser.storage.local.get(["repromptEnabled", "excludedDomains"]).then(d => {
+      if (d.repromptEnabled !== undefined) setRepromptEnabled(d.repromptEnabled as boolean);
+      if (d.excludedDomains) setExcludedDomains(d.excludedDomains as string[]);
+    });
+  }, []);
+
+  const toggleReprompt = async () => {
+    const next = !repromptEnabled;
+    setRepromptEnabled(next);
+    await browser.storage.local.set({ repromptEnabled: next });
+  };
+
+  const addExcludedDomain = async () => {
+    const d = newDomain.trim().toLowerCase();
+    if (!d || excludedDomains.includes(d)) return;
+    const next = [...excludedDomains, d];
+    setExcludedDomains(next);
+    setNewDomain("");
+    await browser.storage.local.set({ excludedDomains: next });
+  };
+
+  const removeExcludedDomain = async (d: string) => {
+    const next = excludedDomains.filter(x => x !== d);
+    setExcludedDomains(next);
+    await browser.storage.local.set({ excludedDomains: next });
+  };
+
+  const clipboardOptions = [
+    { label: "10 seconds", value: 10000 },
+    { label: "30 seconds", value: 30000 },
+    { label: "1 minute", value: 60000 },
+    { label: "2 minutes", value: 120000 },
+    { label: "5 minutes", value: 300000 },
+    { label: "10 minutes", value: 600000 },
+    { label: "Never", value: 0 },
+  ];
 
   const sections = [
     { title: "Account", items: [
       { icon: <Key size={14} />, label: "Change Master Password", sub: "Re-encrypts all entries", onClick: () => setShowChangePw(!showChangePw) },
+    ]},
+    { title: "Appearance", items: [
+      { icon: <Palette size={14} />, label: "Theme", sub: theme === "system" ? "Follow system" : theme === "dark" ? "Dark" : "Light", onClick: () => setShowAppearance(!showAppearance) },
+      { icon: <Clipboard size={14} />, label: "Clipboard Clear", sub: clipboardOptions.find(o => o.value === clipboardClearMs)?.label || "30 seconds", onClick: () => setShowAppearance(!showAppearance) },
     ]},
     { title: "Vault", items: [
       { icon: <Folder size={14} />, label: "Manage Folders", sub: `${folderList.length} folders`, onClick: () => setShowFolders(!showFolders) },
@@ -136,6 +187,10 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
     ]},
     { title: "Security", items: [
       { icon: <Clock size={14} />, label: "Auto-lock Timer", sub: `After ${autoLockMinutes} minutes`, onClick: () => setShowAutoLock(!showAutoLock) },
+      { icon: <ShieldCheck size={14} />, label: "Re-prompt Master Password", sub: repromptEnabled ? "On for sensitive ops" : "Off", onClick: toggleReprompt },
+    ]},
+    { title: "Notifications", items: [
+      { icon: <Globe size={14} />, label: "Excluded Domains", sub: `${excludedDomains.length} domains`, onClick: () => setShowExcludedDomains(!showExcludedDomains) },
     ]},
   ];
 
@@ -144,6 +199,8 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
     if (showHealth) { setShowHealth(false); return; }
     if (showChangePw) { setShowChangePw(false); return; }
     if (showAutoLock) { setShowAutoLock(false); return; }
+    if (showAppearance) { setShowAppearance(false); return; }
+    if (showExcludedDomains) { setShowExcludedDomains(false); return; }
     onBack();
   };
 
@@ -166,6 +223,37 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
             </button>
           </div>
         )}
+        {showAppearance && (
+          <div className="space-y-3">
+            <div className="rounded-md p-3 space-y-3" style={{ background: C.surface, border: `1px solid ${C.hairline}` }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>Theme</div>
+              <div className="space-y-1.5">
+                {(["dark", "light", "system"] as Theme[]).map(t => (
+                  <button key={t} className="w-full flex items-center justify-between px-3 py-2.5 rounded-md transition-colors"
+                    style={{ background: theme === t ? C.accentSubtle : C.bg, border: `1px solid ${theme === t ? C.accent : C.hairline}` }}
+                    onClick={() => setTheme(t)}>
+                    <span style={{ fontSize: 12, color: theme === t ? C.accent : C.ink, textTransform: "capitalize" }}>{t}</span>
+                    {theme === t && <Check size={13} style={{ color: C.accent }} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-md p-3 space-y-3" style={{ background: C.surface, border: `1px solid ${C.hairline}` }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>Clipboard Clear Time</div>
+              <div className="space-y-1.5">
+                {clipboardOptions.map(o => (
+                  <button key={o.value} className="w-full flex items-center justify-between px-3 py-2.5 rounded-md transition-colors"
+                    style={{ background: clipboardClearMs === o.value ? C.accentSubtle : C.bg, border: `1px solid ${clipboardClearMs === o.value ? C.accent : C.hairline}` }}
+                    onClick={() => setClipboardClearMs(o.value)}>
+                    <span style={{ fontSize: 12, color: clipboardClearMs === o.value ? C.accent : C.ink }}>{o.label}</span>
+                    {clipboardClearMs === o.value && <Check size={13} style={{ color: C.accent }} />}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: C.inkFaint }}>Copied passwords are cleared from clipboard after this time</div>
+            </div>
+          </div>
+        )}
         {showFolders && <FolderManagerView token={token} onBack={() => setShowFolders(false)} />}
         {showHealth && <HealthView token={token} onBack={() => setShowHealth(false)} />}
         {showAutoLock && (
@@ -184,7 +272,31 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
             <div style={{ fontSize: 10, color: C.inkFaint }}>Vault locks after this many minutes of inactivity</div>
           </div>
         )}
-        {!showFolders && !showHealth && !showAutoLock && sections.map(sec => (
+        {showExcludedDomains && (
+          <div className="rounded-md p-3 space-y-3" style={{ background: C.surface, border: `1px solid ${C.hairline}` }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>Excluded Domains</div>
+            <div style={{ fontSize: 10, color: C.inkFaint }}>Notifications are suppressed on these domains</div>
+            <div className="flex gap-2">
+              <input type="text" placeholder="example.com" value={newDomain} onChange={e => setNewDomain(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addExcludedDomain()}
+                className="flex-1 rounded-md outline-none" style={{ background: C.bg, border: `1px solid ${C.hairline}`, color: C.ink, padding: "6px 10px", height: 32, fontSize: 12 }} />
+              <button onClick={addExcludedDomain} className="rounded-md" style={{ background: C.accent, color: C.accentTextOn, padding: "6px 12px", fontSize: 11, fontWeight: 600, border: "none" }}>Add</button>
+            </div>
+            {excludedDomains.length === 0 ? (
+              <div style={{ fontSize: 11, color: C.inkFaint, textAlign: "center", padding: "8px 0" }}>No excluded domains</div>
+            ) : (
+              <div className="space-y-1">
+                {excludedDomains.map(d => (
+                  <div key={d} className="flex items-center justify-between rounded-md px-3 py-2" style={{ background: C.bg }}>
+                    <span style={{ fontSize: 12, color: C.ink }}>{d}</span>
+                    <button onClick={() => removeExcludedDomain(d)} style={{ fontSize: 11, color: C.error }}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!showFolders && !showHealth && !showAutoLock && !showAppearance && !showExcludedDomains && sections.map(sec => (
           <div key={sec.title}>
             <div className="px-3 mb-1.5" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.inkFaint }}>{sec.title}</div>
             <div className="rounded-md overflow-hidden" style={{ border: `1px solid ${C.hairline}` }}>

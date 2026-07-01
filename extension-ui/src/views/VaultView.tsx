@@ -1,5 +1,5 @@
 import { Search, Settings } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { type Entry, type View } from "../shared/types";
 import { TopBar, EntryRow } from "./shared";
 import { useVaultLogic } from "../logic/useVault";
@@ -11,6 +11,7 @@ export default function VaultView({ entries, fetching, onViewEntry, onEditEntry,
   onCopy: (t: string, k: string) => void; onCopyPassword: (n: string, k: string) => void;
   onFill: (e: Entry) => void; copied: string | null;
 }) {
+  const { palette: C } = useTheme();
   const { search, setSearch, tab, setTab, filtered, TABS } = useVaultLogic(entries, fetching);
 
   return (

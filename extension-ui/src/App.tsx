@@ -6,7 +6,7 @@ import {
   getFolders, deleteEntry, updateEntry, addEntry as apiAddEntry,
   setTotp as apiSetTotp, restoreEntry, permanentDeleteEntry,
 } from "./api";
-import { C } from "./shared/palette";
+import { useTheme } from "./shared/theme";
 import { useCopy } from "./shared/hooks";
 import { type View } from "./shared/types";
 import VaultView from "./views/VaultView";
@@ -22,7 +22,8 @@ import "./index.css";
 type Panel = null | "detail" | "add" | "edit";
 
 export default function App() {
-  const { copied, copy } = useCopy();
+  const { palette: C, clipboardClearMs } = useTheme();
+  const { copied, copy } = useCopy(clipboardClearMs);
   const [token, setToken] = useState<string | null>(null);
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);

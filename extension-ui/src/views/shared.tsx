@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Copy, Check, ArrowLeft, Star, Globe, Key, Edit2 } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { type Entry } from "../shared/types";
 
 export function TopBar({ title, onMenu, onBack, showBack = false, right }: {
   title: string; onMenu?: () => void; onBack?: () => void; showBack?: boolean; right?: React.ReactNode;
 }) {
+  const { palette: C } = useTheme();
   return (
     <div className="flex items-center justify-between px-3.5 flex-shrink-0" style={{ height: 48, borderBottom: `1px solid ${C.hairline}`, background: C.bg }}>
       {showBack ? (
@@ -26,6 +27,7 @@ export function TopBar({ title, onMenu, onBack, showBack = false, right }: {
 export function FieldCard({ label, value, onCopy, copied, extra }: {
   label: string; value: string; onCopy: () => void; copied: boolean; extra?: React.ReactNode;
 }) {
+  const { palette: C } = useTheme();
   return (
     <div className="rounded-md p-3" style={{ background: C.surface, border: `1px solid ${C.hairline}` }}>
       <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.inkFaint, marginBottom: 6 }}>{label}</div>
@@ -44,6 +46,7 @@ export function FieldCard({ label, value, onCopy, copied, extra }: {
 export function FormField({ label, placeholder, value, onChange, multiline, type = "text" }: {
   label: string; placeholder: string; value: string; onChange: (v: string) => void; multiline?: boolean; type?: string;
 }) {
+  const { palette: C } = useTheme();
   const base = {
     placeholder, value,
     className: "w-full rounded-md outline-none resize-none transition-colors",
@@ -60,6 +63,7 @@ export function FormField({ label, placeholder, value, onChange, multiline, type
 }
 
 export function LetterAvatar({ name, size = 32 }: { name: string; size?: number }) {
+  const { palette: C } = useTheme();
   const fs = size <= 28 ? 11 : 13;
   return (
     <div style={{
@@ -73,6 +77,7 @@ export function LetterAvatar({ name, size = 32 }: { name: string; size?: number 
 }
 
 export function ServiceAvatar({ name, url, size = 32 }: { name: string; url?: string; size?: number }) {
+  const { palette: C } = useTheme();
   const domain = url?.replace(/^https?:\/\//, "").split("/")[0] || "";
   const [imgError, setImgError] = useState(false);
 
@@ -93,6 +98,7 @@ export function EntryRow({ entry, onView, onEdit, onCopy, onFill, copied }: {
   entry: Entry; onView: () => void; onEdit: () => void;
   onCopy: (text: string, key: string) => void; onFill: () => void; copied: string | null;
 }) {
+  const { palette: C } = useTheme();
   const domain = entry.url?.replace(/^https?:\/\//, "").split("/")[0] ?? "";
   const [hovered, setHovered] = useState(false);
 

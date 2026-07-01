@@ -1,10 +1,11 @@
 import { RefreshCw, Shield, Settings, Trash2, Folder, X } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { type Folder as FolderType, type View } from "../shared/types";
 
 export default function DrawerNav({ view, onClose, onNav, folders }: {
   view: View; onClose: () => void; onNav: (v: View) => void; folders: FolderType[];
 }) {
+  const { palette: C } = useTheme();
   const items = [
     { id: "vault" as View, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, label: "Vault" },
     { id: "generator" as View, icon: <RefreshCw size={14} />, label: "Generator" },

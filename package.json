@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run src/__tests__/crypto src/__tests__/domain-match src/__tests__/generate"
   },
   "keywords": [],
   "author": "",
@@ -14,8 +16,11 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.2",
+    "@types/supertest": "^7.2.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "argon2": "^0.44.0",

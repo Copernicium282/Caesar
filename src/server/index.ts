@@ -350,6 +350,7 @@ app.get("/entries/match", async (req, res) => {
     const typeFilter = req.query.type as string | undefined;
     const folderFilter = req.query.folder as string | undefined;
     const favoriteOnly = req.query.favorite === "true";
+    const strategy = (req.query.strategy as string) || "base-domain";
 
     if (typeof tabUrl !== "string" || !tabUrl) {
       res.status(400).json({ error: "Missing url query parameter" });
@@ -362,7 +363,7 @@ app.get("/entries/match", async (req, res) => {
     if (favoriteOnly) filter.favorite = true;
 
     const entries = await entry.find(filter).lean();
-    const result = matchEntries(tabUrl, entries.map(sanitizeEntry));
+    const result = matchEntries(tabUrl, entries.map(sanitizeEntry), strategy as any);
     res.json(result);
   } catch {
     res.status(500).json({ error: "Match failed" });

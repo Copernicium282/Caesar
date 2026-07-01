@@ -1,5 +1,5 @@
 import { Eye, EyeOff, RefreshCw } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { type Entry, type Folder as FolderType } from "../shared/types";
 import { removeTotp } from "../api";
 import { TopBar, FormField } from "./shared";
@@ -11,6 +11,7 @@ export default function AddEditView({ entry, token, folders, onBack, onSave }: {
   onBack: () => void; onSave: (data: Partial<Entry>) => void;
 }) {
   const { form, upd, showPw, setShowPw, handleGenerate } = useAddEditLogic(entry, token);
+  const { palette: C } = useTheme();
   const str = strengthOf((form.password as string) || "");
 
   return (

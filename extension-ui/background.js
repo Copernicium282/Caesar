@@ -12,6 +12,45 @@ browser.storage.local.get("autoLockTimeout").then((d) => {
   if (d.autoLockTimeout) AUTO_LOCK_MS = d.autoLockTimeout;
 });
 
+// ── Phishing Detection ──
+const PHISHING_INDICATORS = [
+  /login-[a-z0-9]+\.com/i,
+  /secure-[a-z0-9]+\.com/i,
+  /account-verify/i,
+  /paypal-[a-z]+\.com/i,
+  /apple-id-verify/i,
+  /microsoft-secure/i,
+  /google-signin-[a-z]+/i,
+  /facebook-login-[a-z]+/i,
+  /instagram-[a-z]+\.com/i,
+  /amazon-[a-z]+\.com/i,
+  /netflix-[a-z]+\.com/i,
+  /bank-[a-z]+\.com/i,
+  /verify-your-account/i,
+  /confirm-identity/i,
+  /suspend[ed]?-account/i,
+];
+
+function checkPhishing(url) {
+  try {
+    const hostname = new URL(url).hostname;
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return { isPhishing: true, reason: "IP address URL detected" };
+    }
+    for (const pattern of PHISHING_INDICATORS) {
+      if (pattern.test(url)) {
+        return { isPhishing: true, reason: "Suspicious URL pattern detected" };
+      }
+    }
+    // e.g. login.paypal.com.evil.com
+    const parts = hostname.split(".");
+    if (parts.length > 4) {
+      return { isPhishing: true, reason: "Excessive subdomains detected" };
+    }
+  } catch {}
+  return { isPhishing: false };
+}
+
 async function updateBadge(tab) {
   if (!tab?.url || tab.url.startsWith("about:")) {
     browser.action.setBadgeText({ text: "" });
@@ -49,7 +88,23 @@ browser.tabs.onActivated.addListener(async (a) => {
   updateBadge(t);
 });
 browser.tabs.onUpdated.addListener((_, c, t) => {
-  if (c.url || c.status === "complete") updateBadge(t);
+  if (c.url || c.status === "complete") {
+    updateBadge(t);
+    // Phishing check
+    if (t?.url && !t.url.startsWith("about:")) {
+      const result = checkPhishing(t.url);
+      if (result.isPhishing && t.id) {
+        browser.action.setBadgeText({ text: "!" });
+        browser.action.setBadgeBackgroundColor({ color: "#dc2626" });
+        try {
+          browser.tabs.sendMessage(t.id, {
+            type: "SHOW_PHISHING_WARNING",
+            reason: result.reason,
+          });
+        } catch {}
+      }
+    }
+  }
 });
 
 browser.runtime.onInstalled.addListener(() => {
@@ -112,7 +167,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
           url: tab.url,
         });
       } catch {
-        // Content script not there — inject and try again
+        // Content script not there, inject and try again
         try {
           await browser.scripting.executeScript({ target: { tabId: tab.id }, files: ["content/fill.js"] });
           await new Promise(r => setTimeout(r, 300));
@@ -221,7 +276,7 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           await browser.tabs.sendMessage(tabId, { type: "FILL_CREDENTIALS", username: msg.username, password: msg.password });
           return;
         } catch (e) {
-          // Content script not there — inject it
+          // Content script not there, inject it
         }
 
         // Inject content script
@@ -260,6 +315,14 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const d = await browser.storage.session.get("vaultchain_token");
         const t = d.vaultchain_token;
         if (!t || !msg.url || !msg.password) return;
+
+        // Check excluded domains
+        const settings = await browser.storage.local.get("excludedDomains");
+        const excluded = settings.excludedDomains || [];
+        try {
+          const hostname = new URL(msg.url).hostname;
+          if (excluded.some(d => hostname === d || hostname.endsWith("." + d))) return;
+        } catch {}
 
         const r = await fetch(
           `${API_BASE}/entries/match?url=${encodeURIComponent(msg.url)}`,

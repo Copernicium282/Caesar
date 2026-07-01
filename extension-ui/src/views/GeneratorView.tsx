@@ -1,11 +1,12 @@
 import { Copy, Check, RefreshCw } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { saveGenerationHistory } from "../api";
 import { strengthOf, useCopy } from "../shared/hooks";
 import { TopBar } from "./shared";
 import { useGeneratorLogic } from "../logic/useGenerator";
 
 export default function GeneratorView({ onBack, token }: { onBack: () => void; token: string }) {
+  const { palette: C } = useTheme();
   const { copied, copy } = useCopy();
   const {
     mode, setMode, len, setLen, words, setWords,

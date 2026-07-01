@@ -2,7 +2,7 @@ import {
   Eye, EyeOff, Copy, Check, Star, ExternalLink, Trash2,
   ChevronDown, Folder, Key,
 } from "lucide-react";
-import { C } from "../shared/palette";
+import { useTheme } from "../shared/theme";
 import { type Entry } from "../shared/types";
 import { TopBar, FieldCard, ServiceAvatar } from "./shared";
 import { strengthOf } from "../shared/hooks";
@@ -16,6 +16,7 @@ export default function DetailView({ entry, token, onBack, onEdit, onDelete, onC
     showPw, setShowPw, password, histOpen, setHistOpen,
     fav, toggleFav, totp, history, confirmDelete, setConfirmDelete,
   } = useDetailLogic(entry, token);
+  const { palette: C } = useTheme();
 
   const domain = entry.url?.replace(/^https?:\/\//, "").split("/")[0] ?? "";
   const str = strengthOf(password);

@@ -145,7 +145,24 @@ browser.runtime.onMessage.addListener(function(msg) {
       newPassword: msg.newPassword,
     });
   }
+  if (msg.type === "SHOW_PHISHING_WARNING") {
+    showPhishingWarning(msg.reason);
+  }
 });
+
+function showPhishingWarning(reason) {
+  if (document.getElementById("vc-phishing-warning")) return;
+  const bar = document.createElement("div");
+  bar.id = "vc-phishing-warning";
+  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#7f1d1d;color:#fef2f2;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:2px solid #dc2626"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div style="flex:1"><div style="font-weight:700;color:#fca5a5">Phishing Warning</div><div style="font-size:11px;color:#fecaca">${reason || "Suspicious site detected"}</div></div><button id="vc-phishing-dismiss" style="background:transparent;color:#fca5a5;border:1px solid #dc2626;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
+  document.body.appendChild(bar);
+  document.getElementById("vc-phishing-dismiss").onclick = function() {
+    bar.remove();
+  };
+  setTimeout(function() {
+    if (bar.parentNode) bar.remove();
+  }, 15000);
+}
 
 // Autofill-on-load detection
 if (document.querySelector('input[type="password"]')) {
