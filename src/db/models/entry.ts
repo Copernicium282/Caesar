@@ -11,7 +11,7 @@ export interface PasswordHistoryEntry {
   password: string;
   iv: string;
   auth_tag: string;
-  changedAt: string;
+  changedAt: Date;
 }
 
 export interface Ipwd {
@@ -31,7 +31,7 @@ export interface Ipwd {
   totp_iv?: string;
   totp_auth_tag?: string;
   passwordHistory: PasswordHistoryEntry[];
-  deletedAt?: string;
+  deletedAt?: Date;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,7 +54,7 @@ const passwordHistorySchema = new Schema<PasswordHistoryEntry>(
     password: { type: String, required: true },
     iv: { type: String, required: true },
     auth_tag: { type: String, required: true },
-    changedAt: { type: String, required: true },
+    changedAt: { type: Date, required: true },
   },
   { _id: false },
 );
@@ -77,7 +77,7 @@ const pwdSchema = new Schema<Ipwd>(
     totp_iv: { type: String, default: null },
     totp_auth_tag: { type: String, default: null },
     passwordHistory: { type: [passwordHistorySchema], default: [] },
-    deletedAt: { type: String, default: null },
+    deletedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

@@ -7,20 +7,21 @@ export async function searchCommand(query: string) {
     const cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
 
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const result = await entry
       .find({
         deletedAt: null,
         $or: [
-          { name: { $regex: query, $options: "i" } },
-          { username: { $regex: query, $options: "i" } },
-          { url: { $regex: query, $options: "i" } },
-          { notes: { $regex: query, $options: "i" } },
+          { name: { $regex: escaped, $options: "i" } },
+          { username: { $regex: escaped, $options: "i" } },
+          { url: { $regex: escaped, $options: "i" } },
+          { notes: { $regex: escaped, $options: "i" } },
         ],
       })
       .lean();
     if (result.length === 0) {
       console.log(`No entries found matching: ${query}`);
-      process.exit(1);
+      process.exit(0);
     }
     console.table(
       result.map((e) => ({

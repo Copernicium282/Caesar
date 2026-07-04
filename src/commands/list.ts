@@ -10,7 +10,7 @@ export async function listCommand(options: { json?: boolean }) {
     const list = await entry.find({ deletedAt: null }).lean();
     if (list.length === 0) {
       console.log("No entries found.");
-      process.exit(1);
+      process.exit(0);
     }
 
     if (options.json === true) {

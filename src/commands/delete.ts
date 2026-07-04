@@ -12,7 +12,7 @@ export async function deleteCommand(name: string) {
     const pwd = await entry.findOne({ name: name, deletedAt: null });
     if (pwd === null) {
       console.log(`Entry not found: ${name}`);
-      process.exit(1);
+      return;
     }
 
     const rl = createInterface(stdin, stdout);
@@ -21,16 +21,15 @@ export async function deleteCommand(name: string) {
       "Are you sure you want to delete this entry? (y/N):",
     );
     if (choice === "y" || choice === "Y") {
-      pwd.deletedAt = new Date().toISOString();
+      pwd.deletedAt = new Date();
       await pwd.save();
+      console.log(`Entry deleted: ${name} (moved to trash)`);
     } else {
       console.log("Cancelled");
-      process.exit(1);
     }
-
-    await disconnectDB();
-    console.log(`Entry deleted: ${name} (moved to trash)`);
   } catch (error: unknown) {
     console.error(error);
+  } finally {
+    await disconnectDB();
   }
 }

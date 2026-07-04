@@ -16,8 +16,9 @@ export function saveConfig(
   if (!fs.existsSync(path.dirname(configPath))) {
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
   }
+  const tmp = configPath + ".tmp";
   fs.writeFileSync(
-    configPath,
+    tmp,
     JSON.stringify({
       argon2_salt: salt,
       mongodb_uri: mongodb_uri,
@@ -27,7 +28,9 @@ export function saveConfig(
       linea_vault_registry_address: linea_vault_registry_address,
       linea_enabled: linea_enabled,
     }),
+    { mode: 0o600 },
   );
+  fs.renameSync(tmp, configPath);
 }
 
 export function loadConfig(): {

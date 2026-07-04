@@ -16,10 +16,12 @@ export async function initCommand() {
 
   const pwd = await promptMasterPassword(true);
   const salt = crypto.randomBytes(32);
+  let derivedKey;
   try {
-    await deriveKey(pwd, salt);
+    derivedKey = await deriveKey(pwd, salt);
   } catch (error: unknown) {
-    console.log(error);
+    console.error("Key derivation failed:", error);
+    process.exit(1);
   }
   const mongoDBUri = "mongodb://localhost:27017/vaultchain";
 

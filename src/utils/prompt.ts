@@ -41,6 +41,7 @@ export function readPassword(promptText: string): Promise<string> {
 }
 
 export async function promptMasterPassword(confirm?: boolean): Promise<string> {
+  if (!stdin.isTTY) throw new Error("Cannot prompt for password in non-interactive context");
   stdin.setRawMode(true);
   stdin.resume();
   stdin.setEncoding("utf-8");

@@ -26,6 +26,7 @@ export async function walletGenerate() {
       authTag: encryptedKey.authTag,
       address: wallet.address,
     }),
+    { mode: 0o600 },
   );
 
   console.log(`VaultChain Wallet Address: ${wallet.address}`);

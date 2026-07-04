@@ -207,6 +207,11 @@ browser.tabs.onActivated.addListener(resetIdle);
 browser.tabs.onUpdated.addListener(resetIdle);
 resetIdle();
 
+// Reset idle timer when popup opens
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "POPUP_OPEN") resetIdle();
+});
+
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "CHECK_AUTOFILL" && sender.tab?.id) {
     (async () => {
@@ -286,13 +291,8 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             files: ["content/fill.js"],
           });
         } catch (e) {
-          // Fallback: inject via tabs API (MV2 compat)
-          try {
-            await browser.tabs.executeScript(tabId, { file: "content/fill.js" });
-          } catch (e2) {
-            console.error("[Caesar] All injection methods failed:", e, e2);
-            return;
-          }
+          console.error("[Caesar] Script injection failed:", e);
+          return;
         }
 
         // Wait for script to initialize, then send

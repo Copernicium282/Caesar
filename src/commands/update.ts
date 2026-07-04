@@ -21,16 +21,15 @@ export async function updateCommand(name: string) {
 
     const rl = createInterface(stdin, stdout);
 
-    pwd.name = await rl.question(`Name (${pwd.name}): `);
+    const newName = await rl.question(`Name (${pwd.name}): `);
+    if (newName) pwd.name = newName;
     let pwdName = pwd.name;
     pwd.username = await rl.question(`Username (${pwd.username}): `);
     let plainPwd = await readPassword(`Password: `);
-    if (plainPwd !== "") {
-      let encryptedPwd = encrypt(plainPwd, key);
-      pwd.encrypted_password = encryptedPwd.ciphertext;
-      pwd.iv = encryptedPwd.iv;
-      pwd.auth_tag = encryptedPwd.authTag;
-    }
+    let encryptedPwd = encrypt(plainPwd, key);
+    pwd.encrypted_password = encryptedPwd.ciphertext;
+    pwd.iv = encryptedPwd.iv;
+    pwd.auth_tag = encryptedPwd.authTag;
     let url = await rl.question(`URL (${pwd.url}): `);
     if (url !== "") pwd.url = url;
     let notes = await rl.question(`Notes (${pwd.notes}): `);

@@ -14,47 +14,36 @@ export async function snapshotCommand(options: { remote?: boolean }) {
 
   const { snapshotHash, entryCount } = await generateSnapshotHash();
 
-  const data = JSON.parse(fs.readFileSync(WALLET_FILE_PATH, "utf-8"));
-  const privateKey = decrypt(
-    {
-      ciphertext: data.encrypted_private_key,
-      iv: data.iv,
-      authTag: data.authTag,
-    },
-    key,
-  );
+  function getPrivateKey() {
+    const data = JSON.parse(fs.readFileSync(WALLET_FILE_PATH, "utf-8"));
+    return decrypt({ ciphertext: data.encrypted_private_key, iv: data.iv, authTag: data.authTag }, key);
+  }
 
-  if (options.remote) {
-    if (!cfg.linea_enabled) {
-      console.error("Linea Sepolia Sync is not enabled in Config.");
-      process.exit(1);
-    }
+  if (options.remote && cfg.linea_enabled) {
+    const privateKey = getPrivateKey();
     const provider = getProvider(cfg.linea_rpc_url);
     const wallet = getWallet(privateKey, provider);
-    const contract = getRegistryContract(
-      wallet,
-      cfg.linea_vault_registry_address,
-    );
+    const contract = getRegistryContract(wallet, cfg.linea_vault_registry_address);
 
-    console.warn(
-      "Your wallet address and snapshot hashes will be public on Linea Sepolia.",
-    );
+    console.warn("Your wallet address and snapshot hashes will be public on Linea Sepolia.");
     const tx = await contract.commitSnapshot!(snapshotHash, entryCount, {
       maxPriorityFeePerGas: ethers.parseUnits("1", "gwei"),
       maxFeePerGas: ethers.parseUnits("10", "gwei"),
     });
     await tx.wait();
-    console.log(
-      `Snapshot committed to Linea Sepolia\ntx: ${tx.hash}, entries: ${entryCount}`,
-    );
+    console.log(`Snapshot committed to Linea Sepolia\ntx: ${tx.hash}, entries: ${entryCount}`);
   }
 
-  const provider = getProvider(cfg.anvil_rpc_url);
-  const wallet = getWallet(privateKey, provider);
-  const contract = getRegistryContract(wallet, cfg.vault_registry_address);
-  const tx = await contract.commitSnapshot!(snapshotHash, entryCount);
-  await tx.wait();
-  console.log(
-    `Snapshot committed to local Anvil Chain\ntx: ${tx.hash}, entries: ${entryCount}`,
-  );
+  try {
+    const privateKey = getPrivateKey();
+    const provider = getProvider(cfg.anvil_rpc_url);
+    const wallet = getWallet(privateKey, provider);
+    const contract = getRegistryContract(wallet, cfg.vault_registry_address);
+    const tx = await contract.commitSnapshot!(snapshotHash, entryCount);
+    await tx.wait();
+    console.log(`Snapshot committed to local Anvil Chain\ntx: ${tx.hash}, entries: ${entryCount}`);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`Local Anvil commit skipped: ${msg}`);
+  }
 }

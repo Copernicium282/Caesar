@@ -13,51 +13,38 @@ export async function verifyCommand(options: { remote?: boolean }) {
 
   const { snapshotHash, entryCount } = await generateSnapshotHash();
 
-  const data = JSON.parse(fs.readFileSync(WALLET_FILE_PATH, "utf-8"));
-  const privateKey = decrypt(
-    {
-      ciphertext: data.encrypted_private_key,
-      iv: data.iv,
-      authTag: data.authTag,
-    },
-    key,
-  );
+  function getPrivateKey() {
+    const data = JSON.parse(fs.readFileSync(WALLET_FILE_PATH, "utf-8"));
+    return decrypt({ ciphertext: data.encrypted_private_key, iv: data.iv, authTag: data.authTag }, key);
+  }
 
-  if (options.remote) {
-    if (!cfg.linea_enabled) {
-      console.error("Linea Sepolia Sync is not enabled in Config.");
-      process.exit(1);
-    }
+  if (options.remote && cfg.linea_enabled) {
+    const privateKey = getPrivateKey();
     const provider = getProvider(cfg.linea_rpc_url);
     const wallet = getWallet(privateKey, provider);
-    const contract = getRegistryContract(
-      wallet,
-      cfg.linea_vault_registry_address,
-    );
+    const contract = getRegistryContract(wallet, cfg.linea_vault_registry_address);
     const onChainSnapshot = await contract.latestSnapshot!(wallet.address);
     if (onChainSnapshot.snapshotHash === snapshotHash) {
-      console.log(
-        `Linea Sepolia Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`,
-      );
+      console.log(`Linea Sepolia Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
     } else {
-      console.warn(
-        `Linea Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`,
-      );
+      console.warn(`Linea Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
     }
     return;
   }
 
-  const provider = getProvider(cfg.anvil_rpc_url);
-  const wallet = getWallet(privateKey, provider);
-  const contract = getRegistryContract(wallet, cfg.vault_registry_address);
-  const onChainSnapshot = await contract.latestSnapshot!(wallet.address);
-  if (onChainSnapshot.snapshotHash === snapshotHash) {
-    console.log(
-      `Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`,
-    );
-  } else {
-    console.warn(
-      `Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`,
-    );
+  try {
+    const privateKey = getPrivateKey();
+    const provider = getProvider(cfg.anvil_rpc_url);
+    const wallet = getWallet(privateKey, provider);
+    const contract = getRegistryContract(wallet, cfg.vault_registry_address);
+    const onChainSnapshot = await contract.latestSnapshot!(wallet.address);
+    if (onChainSnapshot.snapshotHash === snapshotHash) {
+      console.log(`Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
+    } else {
+      console.warn(`Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`Local Anvil verify skipped: ${msg}`);
   }
 }

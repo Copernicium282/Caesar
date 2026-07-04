@@ -5,9 +5,7 @@ export async function generatePassword(length?: number) {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
   const charsLength = chars.length;
-
-  // constrict within limit
-  const maxByteLen = 256 - (256 % charsLength);
+  const limit = 256 - (256 % charsLength);
   let result = "";
 
   while (result.length < len) {
@@ -16,15 +14,10 @@ export async function generatePassword(length?: number) {
 
     for (let i = 0; i < neededBytes; i++) {
       let byte = rbytes[i];
-      if (byte === undefined) {
-        continue;
-      }
-      // bias rejection
-      if (byte < maxByteLen) {
+      if (byte === undefined) continue;
+      if (byte < limit) {
         result += chars[byte % charsLength];
-        if (result.length === len) {
-          break;
-        }
+        if (result.length === len) break;
       }
     }
   }

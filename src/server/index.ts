@@ -11,6 +11,7 @@ import {
   SESSION_FILE_PATH,
 } from "../session/session.js";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import { entry } from "../db/models/entry.js";
 import { folder } from "../db/models/folder.js";
 import { decrypt, encrypt } from "../crypto/aes.js";
@@ -18,11 +19,12 @@ import { connectDB } from "../db/connect.js";
 import { matchEntries } from "../utils/domain-match.js";
 import { generatePassword } from "../utils/generate.js";
 import * as OTPAuth from "otpauth";
+import { ethers } from "ethers";
 
 const app = express();
 const port = 9876;
 
-app.use(express.json());
+app.use(express.json({ limit: "16kb" }));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -32,16 +34,41 @@ app.use((req, res, next) => {
   next();
 });
 
-const cfg = loadConfig();
-await connectDB(cfg.mongodb_uri);
+let cfg = loadConfig();
 
-app.listen(port, "127.0.0.1", () => {
-  console.log("VaultChain server running on http://127.0.0.1:9876");
+async function start() {
+  await connectDB(cfg.mongodb_uri);
+  app.listen(port, "127.0.0.1", () => {
+    console.log("VaultChain server running on http://127.0.0.1:9876");
+  });
+}
+
+start().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
+
+// ── Rate limiter for /unlock ──
+const unlockAttempts = new Map<string, { count: number; resetAt: number }>();
+function checkUnlockRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = unlockAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    unlockAttempts.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= 5;
+}
 
 // ── Unlock ──
 app.post("/unlock", async (req, res) => {
   try {
+    const ip = req.ip || "unknown";
+    if (!checkUnlockRateLimit(ip)) {
+      res.status(429).json({ error: "Too many unlock attempts. Try again in 1 minute." });
+      return;
+    }
     const { MasterPwd } = req.body || {};
     if (!MasterPwd || typeof MasterPwd !== "string") {
       res.status(400).json({ error: "Missing or invalid MasterPwd" });
@@ -60,7 +87,7 @@ app.post("/unlock", async (req, res) => {
     }
 
     const { token, sessionData } = createSessionData(key);
-    fs.writeFileSync(SESSION_FILE_PATH, JSON.stringify(sessionData));
+    await fsp.writeFile(SESSION_FILE_PATH, JSON.stringify(sessionData), { mode: 0o600 });
     res.json({ token, sessionData });
   } catch {
     res.status(500).json({ error: "Unlock failed" });
@@ -68,16 +95,22 @@ app.post("/unlock", async (req, res) => {
 });
 
 // ── Auth Middleware ──
-app.use("/", (req, res, next) => {
+app.use("/", async (req, res, next) => {
+  if (req.method === "POST" && req.path === "/unlock") return next();
   try {
-    if (!fs.existsSync(SESSION_FILE_PATH)) {
+    let data: string;
+    try {
+      data = await fsp.readFile(SESSION_FILE_PATH, "utf-8");
+    } catch {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const data = fs.readFileSync(SESSION_FILE_PATH, "utf-8");
     const sessionData = JSON.parse(data);
-    if (req.headers.authorization && !isExpired(sessionData)) {
-      const key = decryptSessionKey(req.headers.authorization.split("Bearer ")[1] || "", sessionData);
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith("Bearer ") && !isExpired(sessionData)) {
+      const token = auth.slice(7);
+      if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+      const key = decryptSessionKey(token, sessionData);
       (req as any).key = key;
       next();
     } else {
@@ -89,9 +122,9 @@ app.use("/", (req, res, next) => {
 });
 
 // ── Lock ──
-app.post("/lock", (_req, res) => {
+app.post("/lock", async (_req, res) => {
   try {
-    if (fs.existsSync(SESSION_FILE_PATH)) fs.unlinkSync(SESSION_FILE_PATH);
+    await fsp.unlink(SESSION_FILE_PATH);
   } catch {}
   res.json({ ok: true });
 });
@@ -167,7 +200,7 @@ app.put("/entries/:name", async (req, res) => {
         password: oldEncrypted.ciphertext,
         iv: oldEncrypted.iv,
         auth_tag: oldEncrypted.authTag,
-        changedAt: new Date().toISOString(),
+        changedAt: new Date(),
       });
       if (existing.passwordHistory.length > 5) {
         existing.passwordHistory = existing.passwordHistory.slice(-5);
@@ -202,7 +235,7 @@ app.delete("/entries/:name", async (req, res) => {
     const name = decodeURIComponent(req.params.name);
     const existing = await entry.findOne({ name, deletedAt: null });
     if (!existing) { res.status(404).json({ error: "Entry not found" }); return; }
-    existing.deletedAt = new Date().toISOString();
+    existing.deletedAt = new Date();
     await existing.save();
     res.json({ ok: true });
   } catch {
@@ -458,7 +491,7 @@ app.get("/trash", async (_req, res) => {
 // ── Purge Trash ──
 app.post("/trash/purge", async (_req, res) => {
   try {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const result = await entry.deleteMany({ deletedAt: { $ne: null, $lt: thirtyDaysAgo } });
     res.json({ ok: true, deleted: result.deletedCount });
   } catch {
@@ -488,19 +521,18 @@ const GENERATION_HISTORY_FILE = path.join(
   "/.vaultchain/generation-history.json",
 );
 
-function loadGenerationHistory(): Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }> {
+async function loadGenerationHistory(): Promise<Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }>> {
   try {
-    if (fs.existsSync(GENERATION_HISTORY_FILE)) {
-      return JSON.parse(fs.readFileSync(GENERATION_HISTORY_FILE, "utf-8"));
-    }
+    const data = await fsp.readFile(GENERATION_HISTORY_FILE, "utf-8");
+    return JSON.parse(data);
   } catch {}
   return [];
 }
 
-function saveGenerationHistory(history: Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }>) {
+async function saveGenerationHistory(history: Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }>) {
   const dir = path.dirname(GENERATION_HISTORY_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(GENERATION_HISTORY_FILE, JSON.stringify(history, null, 2));
+  await fsp.mkdir(dir, { recursive: true });
+  await fsp.writeFile(GENERATION_HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
 app.post("/generate/history", async (req, res) => {
@@ -511,7 +543,7 @@ app.post("/generate/history", async (req, res) => {
       return;
     }
     const encrypted = encrypt(password, (req as any).key);
-    const history = loadGenerationHistory();
+    const history = await loadGenerationHistory();
     history.push({
       password: encrypted.ciphertext,
       iv: encrypted.iv,
@@ -521,7 +553,7 @@ app.post("/generate/history", async (req, res) => {
       createdAt: new Date().toISOString(),
     });
     if (history.length > 20) history.splice(0, history.length - 20);
-    saveGenerationHistory(history);
+    await saveGenerationHistory(history);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Failed to save to history" });
@@ -530,7 +562,7 @@ app.post("/generate/history", async (req, res) => {
 
 app.get("/generate/history", async (req, res) => {
   try {
-    const history = loadGenerationHistory();
+    const history = await loadGenerationHistory();
     const decrypted = history.map((h) => {
       try {
         const pw = decrypt(
@@ -548,9 +580,9 @@ app.get("/generate/history", async (req, res) => {
   }
 });
 
-app.delete("/generate/history", (_req, res) => {
+app.delete("/generate/history", async (_req, res) => {
   try {
-    if (fs.existsSync(GENERATION_HISTORY_FILE)) fs.unlinkSync(GENERATION_HISTORY_FILE);
+    await fsp.unlink(GENERATION_HISTORY_FILE).catch(() => {});
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Failed to clear history" });
@@ -813,31 +845,46 @@ app.post("/change-password", async (req, res) => {
     const newKey = await deriveKey(newPassword, Buffer.from(newSalt, "base64"));
 
     const allEntries = await entry.find({}).lean();
+    const decrypted: Array<{ _id: any; plaintext: string; totp: string | undefined }> = [];
+
     for (const e of allEntries) {
-      const decrypted = decrypt(
-        { ciphertext: e.encrypted_password, iv: e.iv, authTag: e.auth_tag },
-        oldKey,
-      );
-      const reEncrypted = encrypt(decrypted, newKey);
-
-      const update: any = {
-        encrypted_password: reEncrypted.ciphertext,
-        iv: reEncrypted.iv,
-        auth_tag: reEncrypted.authTag,
-      };
-
+      const pw = decrypt({ ciphertext: e.encrypted_password, iv: e.iv, authTag: e.auth_tag }, oldKey);
+      let totp: string | undefined;
       if (e.totp && e.totp_iv && e.totp_auth_tag) {
-        const totpDecrypted = decrypt(
-          { ciphertext: e.totp, iv: e.totp_iv, authTag: e.totp_auth_tag },
-          oldKey,
-        );
-        const totpReEncrypted = encrypt(totpDecrypted, newKey);
-        update.totp = totpReEncrypted.ciphertext;
-        update.totp_iv = totpReEncrypted.iv;
-        update.totp_auth_tag = totpReEncrypted.authTag;
+        totp = decrypt({ ciphertext: e.totp, iv: e.totp_iv, authTag: e.totp_auth_tag }, oldKey);
       }
+      decrypted.push({ _id: e._id, plaintext: pw, totp });
+    }
 
-      await entry.updateOne({ _id: e._id }, { $set: update });
+    const updated: typeof allEntries = [];
+    try {
+      for (const d of decrypted) {
+        const reEncrypted = encrypt(d.plaintext, newKey);
+        const update: any = {
+          encrypted_password: reEncrypted.ciphertext,
+          iv: reEncrypted.iv,
+          auth_tag: reEncrypted.authTag,
+        };
+        if (d.totp) {
+          const totpReEncrypted = encrypt(d.totp, newKey);
+          update.totp = totpReEncrypted.ciphertext;
+          update.totp_iv = totpReEncrypted.iv;
+          update.totp_auth_tag = totpReEncrypted.authTag;
+        }
+        await entry.updateOne({ _id: d._id }, { $set: update });
+        const orig = allEntries.find(e => e._id === d._id);
+        if (orig) updated.push(orig);
+      }
+    } catch (writeErr) {
+      for (const d of decrypted) {
+        if (updated.some(u => u._id === d._id)) {
+          const rollback = encrypt(d.plaintext, oldKey);
+          await entry.updateOne({ _id: d._id }, { $set: {
+            encrypted_password: rollback.ciphertext, iv: rollback.iv, auth_tag: rollback.authTag,
+          }});
+        }
+      }
+      throw writeErr;
     }
 
     saveConfig(
@@ -849,8 +896,9 @@ app.post("/change-password", async (req, res) => {
       cfg.linea_vault_registry_address,
       cfg.linea_enabled,
     );
+    cfg.argon2_salt = newSalt;
 
-    if (fs.existsSync(SESSION_FILE_PATH)) fs.unlinkSync(SESSION_FILE_PATH);
+    await fsp.unlink(SESSION_FILE_PATH).catch(() => {});
 
     res.json({ ok: true });
   } catch {
@@ -902,12 +950,12 @@ app.get("/vault-health", async (_req, res) => {
 // ── Snapshot Status ──
 app.get("/snapshot/status", async (_req, res) => {
   try {
-    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
     const formatted = allEntries.map(e => ({
-      name: e.name, username: e.username, url: e.url,
+      name: e.name, username: e.username, url: e.url, notes: e.notes,
       encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
     }));
-    const snapshotHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
+    const snapshotHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(formatted)));
     res.json({ hash: snapshotHash, entryCount: formatted.length, timestamp: new Date().toISOString() });
   } catch {
     res.status(500).json({ error: "Failed to get snapshot status" });
@@ -917,13 +965,13 @@ app.get("/snapshot/status", async (_req, res) => {
 // ── Snapshot Commit ──
 app.post("/snapshot", async (_req, res) => {
   try {
-    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
     const formatted = allEntries.map(e => ({
-      name: e.name, username: e.username, url: e.url,
+      name: e.name, username: e.username, url: e.url, notes: e.notes,
       encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
     }));
-    const snapshotHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
-    res.json({ hash: snapshotHash, entryCount: formatted.length, timestamp: new Date().toISOString() });
+    const snapshotHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(formatted)));
+    res.json({ hash: snapshotHash, entryCount: formatted.length, timestamp: new Date().toISOString(), committed: false });
   } catch {
     res.status(500).json({ error: "Failed to commit snapshot" });
   }
@@ -934,12 +982,12 @@ app.post("/verify", async (req, res) => {
   try {
     const { hash } = req.body || {};
     if (!hash) return res.status(400).json({ error: "hash is required" });
-    const allEntries = await entry.find({ deletedAt: null }).lean();
+    const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
     const formatted = allEntries.map(e => ({
-      name: e.name, username: e.username, url: e.url,
+      name: e.name, username: e.username, url: e.url, notes: e.notes,
       encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
     }));
-    const currentHash = crypto.createHash("sha256").update(JSON.stringify(formatted)).digest("hex");
+    const currentHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(formatted)));
     res.json({ valid: currentHash === hash, currentHash, submittedHash: hash });
   } catch {
     res.status(500).json({ error: "Failed to verify snapshot" });
@@ -1010,6 +1058,10 @@ app.post("/import", async (req, res) => {
 
     if (!importEntries || !Array.isArray(importEntries)) {
       res.status(400).json({ error: "Missing entries array" });
+      return;
+    }
+    if (importEntries.length > 10000) {
+      res.status(400).json({ error: "Too many entries (max 10,000)" });
       return;
     }
 

@@ -26,7 +26,7 @@ export async function getCommand(
         console.error(
           `Unknown field: ${options.field}\nAllowed fields are name, username, url, notes, createdAt, updatedAt`,
         );
-        process.exit(1);
+        return;
       }
 
       await connectDB(cfg.mongodb_uri);
@@ -34,7 +34,7 @@ export async function getCommand(
       const pwdObj = await entry.findOne({ name: name, deletedAt: null }).lean();
       if (pwdObj === null) {
         console.log(`Entry not found: ${name}`);
-        process.exit(1);
+        return;
       }
 
       console.log(pwdObj[field as keyof typeof pwdObj]);
@@ -45,7 +45,7 @@ export async function getCommand(
       const pwdObj = await entry.findOne({ name: name, deletedAt: null }).lean();
       if (pwdObj === null) {
         console.log(`Entry not found: ${name}`);
-        process.exit(1);
+        return;
       }
 
       let decryptedPwd = decrypt(
@@ -62,16 +62,12 @@ export async function getCommand(
       } else {
         clipboard.writeSync(decryptedPwd);
         console.log("Password copied to clipboard (clears in 30s)");
-
-        // clear in 30s
-        setTimeout(() => {
-          clipboard.writeSync("");
-        }, 30000);
+        setTimeout(() => { clipboard.writeSync(""); }, 30000).unref();
       }
     }
-
-    await disconnectDB();
   } catch (error: unknown) {
-    console.log(error);
+    console.error(error);
+  } finally {
+    await disconnectDB();
   }
 }

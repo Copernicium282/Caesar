@@ -65,6 +65,7 @@ export default function App() {
       const s = d.vaultchain_token as string | undefined;
       if (s) { setToken(s); fetchEntries(s); fetchFolders(s); }
     });
+    try { browser.runtime.sendMessage({ type: "POPUP_OPEN" }); } catch {}
   }, [fetchEntries, fetchFolders]);
 
   const handleUnlock = async () => {
@@ -82,14 +83,14 @@ export default function App() {
   };
 
   const handleLock = async () => {
-    if (token) { try { await apiLock(token); } catch {} }
+    if (token) { try { await apiLock(token); } catch (e) { console.error("[Caesar] lock failed:", e); } }
     await browser.storage.session.remove("vaultchain_token");
     setToken(null); setEntries([]); setView("vault"); setPanel(null); setDrawer(false);
   };
 
   const handleCopyPassword = async (name: string, key: string) => {
     if (!token) return;
-    try { copy((await getPassword(name, token)).password, key); } catch {}
+    try { copy((await getPassword(name, token)).password, key); } catch (e) { console.error("[Caesar] copy password failed:", e); }
   };
 
   const handleCopyText = (text: string, key: string) => { copy(text, key); };
@@ -99,22 +100,22 @@ export default function App() {
     try {
       const d = await getPassword(entry.name, token);
       browser.runtime.sendMessage({ type: "FILL_CREDENTIALS", username: entry.username, password: d.password });
-    } catch {}
+    } catch (e) { console.error("[Caesar] fill failed:", e); }
   };
 
   const handleDelete = async (name: string) => {
     if (!token) return;
-    try { await deleteEntry(name, token); fetchEntries(token); setPanel(null); setSelected(null); } catch {}
+    try { await deleteEntry(name, token); fetchEntries(token); setPanel(null); setSelected(null); } catch (e) { console.error("[Caesar] delete failed:", e); }
   };
 
   const handleRestore = async (name: string) => {
     if (!token) return;
-    try { await restoreEntry(name, token); fetchEntries(token); } catch {}
+    try { await restoreEntry(name, token); fetchEntries(token); } catch (e) { console.error("[Caesar] restore failed:", e); }
   };
 
   const handlePermanentDelete = async (name: string) => {
     if (!token) return;
-    try { await permanentDeleteEntry(name, token); } catch {}
+    try { await permanentDeleteEntry(name, token); } catch (e) { console.error("[Caesar] permanent delete failed:", e); }
   };
 
   const handleSave = async (data: Partial<Entry>) => {
@@ -128,7 +129,7 @@ export default function App() {
         if ((data as any).totpSecret && data.name) await apiSetTotp(data.name, (data as any).totpSecret, token);
       }
       fetchEntries(token); setPanel(null); setEditTarget(null);
-    } catch {}
+    } catch (e) { console.error("[Caesar] save failed:", e); }
   };
 
   const nav = (v: View) => { setView(v); setPanel(null); };
