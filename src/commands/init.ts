@@ -3,6 +3,7 @@ import { deriveKey } from "../crypto/argon2.js";
 import { loadConfig, saveConfig } from "../config/config.js";
 import { promptMasterPassword } from "../utils/prompt.js";
 import { connectDB, disconnectDB } from "../db/connect.js";
+import { certExists, generateCert } from "../crypto/tls.js";
 
 export async function initCommand() {
   try {
@@ -29,6 +30,11 @@ export async function initCommand() {
   console.log(
     "Your salt is stored at ~/.vaultchain/config.json. If you delete this file your vault will be permanently inaccessible. Back it up somewhere safe.",
   );
+
+  if (!certExists()) {
+    await generateCert();
+    console.log("TLS certificate generated at ~/.vaultchain/cert.pem");
+  }
 
   try {
     await connectDB(mongoDBUri);

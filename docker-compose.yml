@@ -1,0 +1,20 @@
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - caesar_data:/data/db
+    restart: unless-stopped
+
+  caesar:
+    build: .
+    ports:
+      - "127.0.0.1:9876:9876"
+    depends_on: [mongo]
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/caesar
+    volumes:
+      - ~/.vaultchain:/root/.vaultchain
+    restart: unless-stopped
+
+volumes:
+  caesar_data:

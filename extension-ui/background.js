@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:9876";
+const API_BASE = "https://127.0.0.1:9876";
 let AUTO_LOCK_MS = 15 * 60 * 1000;
 
 try {

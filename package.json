@@ -1,9 +1,14 @@
 {
-  "name": "vaultchain",
+  "name": "caesar-vault",
   "version": "0.1.0",
-  "description": "",
+  "description": "A self-sovereign password manager where your encrypted vault never touches a third-party server.",
+  "bin": {
+    "caesar": "./bin/caesar.ts"
+  },
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
+    "start": "node dist/commands/serve.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,13 +28,18 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@helia/unixfs": "^8.0.3",
     "argon2": "^0.44.0",
+    "blockstore-fs": "^4.0.1",
     "clipboardy": "^5.3.1",
     "commander": "^15.0.0",
+    "datastore-fs": "^12.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "helia": "^7.0.5",
     "mongoose": "^9.7.0",
     "otpauth": "^9.5.1",
+    "selfsigned": "^5.5.0",
     "tldts": "^7.4.3",
     "zxcvbn": "^4.4.2"
   }

@@ -1,4 +1,5 @@
 import express from "express";
+import https from "node:https";
 import crypto from "node:crypto";
 import path from "node:path";
 import os from "node:os";
@@ -20,6 +21,8 @@ import { matchEntries } from "../utils/domain-match.js";
 import { generatePassword } from "../utils/generate.js";
 import * as OTPAuth from "otpauth";
 import { ethers } from "ethers";
+import { loadCert, certExists } from "../crypto/tls.js";
+import { startHelia, stopHelia, addBlob, getBlob } from "../ipfs/helia.js";
 
 const app = express();
 const port = 9876;
@@ -38,9 +41,25 @@ let cfg = loadConfig();
 
 async function start() {
   await connectDB(cfg.mongodb_uri);
-  app.listen(port, "127.0.0.1", () => {
-    console.log("VaultChain server running on http://127.0.0.1:9876");
+  await startHelia();
+
+  if (!certExists()) {
+    console.error("TLS certificate not found. Run 'vaultchain init' first.");
+    process.exit(1);
+  }
+
+  const { cert, key } = loadCert();
+  const server = https.createServer({ cert, key }, app).listen(port, "127.0.0.1", () => {
+    console.log("VaultChain server running on https://127.0.0.1:9876");
   });
+
+  const shutdown = async () => {
+    server.close();
+    await stopHelia();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 start().catch((err) => {
@@ -892,9 +911,9 @@ app.post("/change-password", async (req, res) => {
       cfg.mongodb_uri,
       cfg.anvil_rpc_url,
       cfg.vault_registry_address,
-      cfg.linea_rpc_url,
-      cfg.linea_vault_registry_address,
-      cfg.linea_enabled,
+      cfg.sepolia_rpc_url,
+      cfg.sepolia_vault_registry_address,
+      cfg.sepolia_enabled,
     );
     cfg.argon2_salt = newSalt;
 
@@ -991,6 +1010,29 @@ app.post("/verify", async (req, res) => {
     res.json({ valid: currentHash === hash, currentHash, submittedHash: hash });
   } catch {
     res.status(500).json({ error: "Failed to verify snapshot" });
+  }
+});
+
+// ── Sync ──
+app.post("/sync", async (_req, res) => {
+  try {
+    const key = (_req as any).key as Buffer;
+
+    const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
+    const formatted = allEntries.map(e => ({
+      name: e.name, username: e.username, url: e.url, notes: e.notes,
+      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+    }));
+    const localHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(formatted)));
+
+    const jsonStr = JSON.stringify(formatted);
+    const encrypted = encrypt(jsonStr, key);
+    const blob = Buffer.from(JSON.stringify(encrypted));
+    const cid = await addBlob(blob);
+
+    res.json({ cid, hash: localHash, entryCount: formatted.length, timestamp: new Date().toISOString() });
+  } catch {
+    res.status(500).json({ error: "Sync failed" });
   }
 });
 

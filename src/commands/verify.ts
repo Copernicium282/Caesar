@@ -18,16 +18,16 @@ export async function verifyCommand(options: { remote?: boolean }) {
     return decrypt({ ciphertext: data.encrypted_private_key, iv: data.iv, authTag: data.authTag }, key);
   }
 
-  if (options.remote && cfg.linea_enabled) {
+  if (options.remote && cfg.sepolia_enabled) {
     const privateKey = getPrivateKey();
-    const provider = getProvider(cfg.linea_rpc_url);
+    const provider = getProvider(cfg.sepolia_rpc_url);
     const wallet = getWallet(privateKey, provider);
-    const contract = getRegistryContract(wallet, cfg.linea_vault_registry_address);
+    const contract = getRegistryContract(wallet, cfg.sepolia_vault_registry_address);
     const onChainSnapshot = await contract.latestSnapshot!(wallet.address);
     if (onChainSnapshot.snapshotHash === snapshotHash) {
-      console.log(`Linea Sepolia Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
+      console.log(`Ethereum Sepolia Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
     } else {
-      console.warn(`Linea Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
+      console.warn(`Ethereum Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
     }
     return;
   }

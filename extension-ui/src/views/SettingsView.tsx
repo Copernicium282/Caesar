@@ -4,6 +4,7 @@ import {
   Clock, LogOut, Check, Key, Palette, Clipboard, Globe, ShieldCheck,
 } from "lucide-react";
 import { useTheme, type Theme } from "../shared/theme";
+import { triggerSync } from "../api";
 import { type View } from "../shared/types";
 import { TopBar } from "./shared";
 import { useSettingsLogic } from "../logic/useSettings";
@@ -191,6 +192,9 @@ export default function SettingsView({ onBack, onLock, onNav, token }: {
     ]},
     { title: "Notifications", items: [
       { icon: <Globe size={14} />, label: "Excluded Domains", sub: `${excludedDomains.length} domains`, onClick: () => setShowExcludedDomains(!showExcludedDomains) },
+    ]},
+    { title: "Sync", items: [
+      { icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>, label: "Sync Vault", sub: "Push vault to IPFS", onClick: async () => { try { await triggerSync(token); } catch (e) { console.error("[Caesar] sync failed:", e); } } },
     ]},
   ];
 

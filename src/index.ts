@@ -16,6 +16,7 @@ import { verifyCommand } from "./commands/verify.js";
 import { serveCommand } from "./commands/serve.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
+import { syncCommand } from "./commands/sync.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -110,15 +111,20 @@ wallet
 
 const snapshot = program
   .command("snapshot")
-  .option("--remote", "Also commit to Linea Sepolia")
+  .option("--remote", "Also commit to Ethereum Sepolia")
   .description("Commit a snapshot of the vault to the blockchain")
   .action(snapshotCommand);
 
 const verify = program
   .command("verify")
-  .option("--remote", "Verify against Linea Sepolia instead of local")
+  .option("--remote", "Verify against Ethereum Sepolia instead of local")
   .description("Verify vault integrity against last committed snapshot")
   .action(verifyCommand);
+
+const sync = program
+  .command("sync")
+  .description("Pull latest vault snapshot from IPFS and apply locally")
+  .action(syncCommand);
 
 const serve = program
   .command("serve")

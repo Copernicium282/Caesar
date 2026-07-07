@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:9876";
+const API_BASE = "https://127.0.0.1:9876";
 
 export interface CustomField {
   name: string;
@@ -304,3 +304,8 @@ export const verifySnapshot = (
   t: string,
 ): Promise<{ valid: boolean; currentHash: string; submittedHash: string }> =>
   apiPost("/verify", { hash }, t);
+
+export const triggerSync = (
+  t: string,
+): Promise<{ cid: string; hash: string; entryCount: number; timestamp: string }> =>
+  apiPost("/sync", {}, t);
