@@ -309,3 +309,9 @@ export const triggerSync = (
   t: string,
 ): Promise<{ cid: string; hash: string; entryCount: number; timestamp: string }> =>
   apiPost("/sync", {}, t);
+
+export const searchEntries = (
+  query: string,
+  t: string,
+): Promise<Entry[]> =>
+  apiGet(`/entries/search?q=${encodeURIComponent(query)}`, t);

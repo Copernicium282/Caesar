@@ -422,6 +422,27 @@ app.get("/entries/match", async (req, res) => {
   }
 });
 
+// ── Search ──
+app.get("/entries/search", async (req, res) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) { res.status(400).json({ error: "Missing q parameter" }); return; }
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const results = await entry.find({
+      deletedAt: null,
+      $or: [
+        { name: { $regex: escaped, $options: "i" } },
+        { username: { $regex: escaped, $options: "i" } },
+        { url: { $regex: escaped, $options: "i" } },
+        { notes: { $regex: escaped, $options: "i" } },
+      ],
+    }).lean();
+    res.json(results.map(sanitizeEntry));
+  } catch {
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
 // ── Password decrypt ──
 app.get("/entries/:name/password", async (req, res) => {
   try {

@@ -17,6 +17,15 @@ import { serveCommand } from "./commands/serve.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
 import { syncCommand } from "./commands/sync.js";
+import { restoreCommand } from "./commands/restore.js";
+import { permanentDeleteCommand } from "./commands/permanent-delete.js";
+import { trashCommand } from "./commands/trash.js";
+import { purgeTrashCommand } from "./commands/purge-trash.js";
+import { favoriteCommand } from "./commands/favorite.js";
+import { historyCommand } from "./commands/history.js";
+import { totpCommand } from "./commands/totp.js";
+import { folderListCommand, folderCreateCommand, folderDeleteCommand } from "./commands/folders.js";
+import { changePasswordCommand } from "./commands/change-password.js";
 
 const VCv1 = program
   .name("vaultchain")
@@ -144,5 +153,71 @@ const importCmd = program
   .argument("<input>", "Input file path")
   .description("Import vault from JSON or CSV")
   .action(importCommand);
+
+program
+  .command("restore")
+  .argument("<name>", "Entry name")
+  .description("Restore an entry from trash")
+  .action(restoreCommand);
+
+program
+  .command("permanent-delete")
+  .argument("<name>", "Entry name")
+  .description("Permanently delete an entry")
+  .action(permanentDeleteCommand);
+
+program
+  .command("trash")
+  .description("List entries in trash")
+  .action(trashCommand);
+
+program
+  .command("purge-trash")
+  .description("Delete entries in trash older than 30 days")
+  .action(purgeTrashCommand);
+
+program
+  .command("favorite")
+  .argument("<name>", "Entry name")
+  .description("Toggle favorite status")
+  .action(favoriteCommand);
+
+program
+  .command("history")
+  .argument("<name>", "Entry name")
+  .description("Show password history")
+  .action(historyCommand);
+
+program
+  .command("totp")
+  .argument("<name>", "Entry name")
+  .description("Show current TOTP code")
+  .action(totpCommand);
+
+const folderCmd = program
+  .command("folder")
+  .description("Manage folders");
+
+folderCmd
+  .command("list")
+  .description("List all folders")
+  .action(folderListCommand);
+
+folderCmd
+  .command("create")
+  .argument("<name>", "Folder name")
+  .description("Create a folder")
+  .action(folderCreateCommand);
+
+folderCmd
+  .command("delete")
+  .argument("<name>", "Folder name")
+  .description("Delete a folder")
+  .action(folderDeleteCommand);
+
+program
+  .command("change-password")
+  .description("Change master password")
+  .action(changePasswordCommand);
 
 await program.parseAsync();
