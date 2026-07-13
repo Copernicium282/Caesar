@@ -1,0 +1,8 @@
+node_modules
+extension-ui
+*.md
+.specs
+.github
+.git
+vitest.config.ts
+src

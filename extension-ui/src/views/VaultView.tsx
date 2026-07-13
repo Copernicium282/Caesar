@@ -67,7 +67,7 @@ export default function VaultView({ entries, fetching, onViewEntry, onEditEntry,
             {filtered.map(e => (
               <EntryRow key={e.name} entry={e}
                 onView={() => onViewEntry(e)} onEdit={() => onEditEntry(e)}
-                onCopy={onCopy} onFill={() => onFill(e)} copied={copied} />
+                onCopy={onCopy} onCopyPassword={onCopyPassword} onFill={() => onFill(e)} copied={copied} />
             ))}
           </div>
         )}

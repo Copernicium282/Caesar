@@ -40,5 +40,6 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "exclude": ["extension-ui", "vitest.config.ts", "bin"]
+  "exclude": ["extension-ui", "vitest.config.ts", "bin"],
+  "include": ["src"]
 }

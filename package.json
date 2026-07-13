@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "description": "A self-sovereign password manager where your encrypted vault never touches a third-party server.",
   "bin": {
-    "caesar": "./bin/caesar.ts"
+    "caesar": "./dist/index.js"
   },
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "start": "node dist/commands/serve.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
@@ -20,8 +20,10 @@
   "type": "module",
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
     "@types/node": "^25.9.2",
     "@types/supertest": "^7.2.0",
+    "@types/zxcvbn": "^4.4.5",
     "supertest": "^7.2.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
@@ -33,13 +35,16 @@
     "blockstore-fs": "^4.0.1",
     "clipboardy": "^5.3.1",
     "commander": "^15.0.0",
+    "csv-parse": "^7.0.1",
     "datastore-fs": "^12.0.1",
     "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
     "express": "^5.2.1",
     "helia": "^7.0.5",
+    "mkcert": "^3.2.0",
     "mongoose": "^9.7.0",
+    "morgan": "^1.11.0",
     "otpauth": "^9.5.1",
-    "selfsigned": "^5.5.0",
     "tldts": "^7.4.3",
     "zxcvbn": "^4.4.2"
   }

@@ -3,7 +3,7 @@ import { entry } from "./db/models/entry.js";
 import { encrypt } from "./crypto/aes.js";
 import crypto from "node:crypto";
 
-const cfg = { mongodb_uri: "mongodb://localhost:27017/vaultchain" };
+const cfg = { mongodb_uri: "mongodb://localhost:27017/caesar" };
 await connectDB(cfg.mongodb_uri);
 
 const testKey = crypto.randomBytes(32);
@@ -36,7 +36,7 @@ console.log("Test entries created. Test key (hex):", testKey.toString("hex"));
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-const walletPath = path.join(os.homedir(), "/.vaultchain/wallet.json");
+const walletPath = path.join(os.homedir(), ".caesar", "wallet.json");
 if (fs.existsSync(walletPath)) fs.unlinkSync(walletPath);
 
 await disconnectDB();

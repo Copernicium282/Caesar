@@ -40,7 +40,7 @@ function showBanner(entries) {
   b.innerHTML = `<div style="position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#3d3835;color:#fafaf9;padding:10px 14px;border-radius:6px;border:1px solid #57534e;box-shadow:0 4px 16px rgba(0,0,0,0.4);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;max-width:320px;width:calc(100% - 24px)"><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Fill ${e.name}?</div><div style="font-size:11px;color:#a8a29e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.username}</div></div><button id="vc-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Fill</button><button id="vc-no" style="background:transparent;color:#78716c;border:1px solid #44403c;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center">&times;</button></div>`;
   document.body.appendChild(b);
   document.getElementById("vc-yes").onclick = function() {
-    browser.runtime.sendMessage({ type: "FILL_ENTRY", name: e.name });
+    browser.runtime.sendMessage({ type: "FILL_ENTRY", name: e.name, username: e.username });
     b.remove();
   };
   document.getElementById("vc-no").onclick = function() {

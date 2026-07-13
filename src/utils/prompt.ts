@@ -19,6 +19,7 @@ export function readPassword(promptText: string): Promise<string> {
       }
       // handle enter
       if (char === "\r" || char === "\n") {
+        stdout.write("\n");
         stdin.removeListener("data", onData);
         resolve(inputBuffer);
         return;

@@ -12,7 +12,8 @@ export interface SessionData {
 
 export const SESSION_FILE_PATH = path.join(
   os.homedir(),
-  "/.vaultchain/session.json",
+  ".caesar",
+  "session.json",
 );
 
 export function createSessionData(derivedKey: Buffer): {
@@ -20,7 +21,7 @@ export function createSessionData(derivedKey: Buffer): {
   sessionData: SessionData;
 } {
   const token = crypto.randomBytes(32);
-  const payload = encrypt(derivedKey.toHex(), token);
+  const payload = encrypt(derivedKey.toString("hex"), token);
   const expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
   const sessionData = {
     encrypted_key: payload.ciphertext,
@@ -28,7 +29,7 @@ export function createSessionData(derivedKey: Buffer): {
     authTag: payload.authTag,
     expires_at: expires_at,
   };
-  return { token: token.toHex(), sessionData: sessionData };
+  return { token: token.toString("hex"), sessionData: sessionData };
 }
 
 export function decryptSessionKey(

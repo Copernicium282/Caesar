@@ -5,7 +5,7 @@ import { FsDatastore } from "datastore-fs";
 import path from "node:path";
 import os from "node:os";
 
-const IPFS_DIR = path.join(os.homedir(), "/.vaultchain/ipfs");
+const IPFS_DIR = path.join(os.homedir(), ".caesar", "ipfs");
 
 let helia: Awaited<ReturnType<typeof createHelia>> | null = null;
 let fs: ReturnType<typeof unixfs> | null = null;

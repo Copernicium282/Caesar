@@ -57,12 +57,14 @@ async function apiPost(
     "Content-Type": "application/json",
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  headers["X-Caesar-Client"] = "1";
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 401) throw new Error("SESSION_EXPIRED");
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Request failed (${res.status})`);
   }
@@ -79,10 +81,12 @@ async function apiPut(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      "X-Caesar-Client": "1",
     },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    if (res.status === 401) throw new Error("SESSION_EXPIRED");
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Request failed (${res.status})`);
   }
@@ -92,9 +96,10 @@ async function apiPut(
 async function apiDelete(path: string, token: string) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, "X-Caesar-Client": "1" },
   });
   if (!res.ok) {
+    if (res.status === 401) throw new Error("SESSION_EXPIRED");
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Request failed (${res.status})`);
   }
@@ -103,9 +108,10 @@ async function apiDelete(path: string, token: string) {
 
 async function apiGet(path: string, token: string) {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, "X-Caesar-Client": "1" },
   });
   if (!res.ok) {
+    if (res.status === 401) throw new Error("SESSION_EXPIRED");
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Request failed (${res.status})`);
   }

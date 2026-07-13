@@ -12,7 +12,7 @@ export function restoreSalt(path: string) {
       );
       process.exit(1);
     } catch {
-      saveConfig(argon2_salt, "mongodb://localhost:27017/vaultchain");
+      saveConfig(argon2_salt, "mongodb://localhost:27017/caesar");
     }
   } catch (error: unknown) {
     console.error(error);

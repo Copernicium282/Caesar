@@ -10,11 +10,11 @@ import { promptMasterPassword } from "./prompt.js";
 
 export async function fetchKey(cfg: { argon2_salt: any; mongodb_uri: string }) {
   let key;
-  if (process.env.VAULTCHAIN_SESSION && fs.existsSync(SESSION_FILE_PATH)) {
+  if (process.env.Caesar_SESSION && fs.existsSync(SESSION_FILE_PATH)) {
     const data = fs.readFileSync(SESSION_FILE_PATH, "utf-8");
     const sessionData: SessionData = JSON.parse(data);
     if (!isExpired(sessionData)) {
-      key = decryptSessionKey(process.env.VAULTCHAIN_SESSION, sessionData);
+      key = decryptSessionKey(process.env.Caesar_SESSION, sessionData);
     }
   }
   if (key === undefined) {

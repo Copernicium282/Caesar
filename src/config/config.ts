@@ -2,11 +2,11 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 
-export const configPath = path.join(os.homedir(), "/.vaultchain/config.json");
+export const configPath = path.join(os.homedir(), ".caesar", "config.json");
 
 export function saveConfig(
   salt: string,
-  mongodb_uri: string = "mongodb://localhost:27017/vaultchain",
+  mongodb_uri: string = "mongodb://localhost:27017/caesar",
   anvil_rpc_url: string = "http://127.0.0.1:8545",
   vault_registry_address: string = "",
   sepolia_rpc_url: string = "https://rpc.sepolia.org",
@@ -41,6 +41,7 @@ export function loadConfig(): {
   sepolia_rpc_url: string;
   sepolia_vault_registry_address: string;
   sepolia_enabled: boolean;
+  verification_blob?: string;
 } {
   try {
     let cfg = fs.readFileSync(configPath, "utf-8");
@@ -54,8 +55,9 @@ export function loadConfig(): {
         data.sepolia_rpc_url ?? data.linea_rpc_url ?? "https://rpc.sepolia.org",
       sepolia_vault_registry_address: data.sepolia_vault_registry_address ?? data.linea_vault_registry_address ?? "",
       sepolia_enabled: data.sepolia_enabled ?? data.linea_enabled ?? false,
+      verification_blob: data.verification_blob,
     };
   } catch (err) {
-    throw new Error("Vault not initialized. Run vaultchain init first.");
+    throw new Error("Vault not initialized. Run caesar init first.");
   }
 }

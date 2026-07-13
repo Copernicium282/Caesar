@@ -37,7 +37,7 @@ export async function syncCommand() {
   const remoteCid = onChain.ipfsCid;
 
   if (!remoteCid) {
-    console.log("No IPFS snapshot found. Run 'vaultchain snapshot --remote' on your primary device first.");
+    console.log("No IPFS snapshot found. Run 'caesar snapshot --remote' on your primary device first.");
     return;
   }
 

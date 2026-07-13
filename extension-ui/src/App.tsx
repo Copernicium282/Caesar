@@ -49,8 +49,10 @@ export default function App() {
         r = await getMatchedEntriesFiltered("about:blank", tok, {});
       }
       setEntries([...r.matched, ...r.unmatched]);
-    } catch {
-      setToken(null);
+    } catch (e) {
+      if (e instanceof Error && e.message === "SESSION_EXPIRED") {
+        setToken(null);
+      }
     } finally {
       setFetching(false);
     }
@@ -61,8 +63,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    browser.storage.session.get("vaultchain_token").then((d) => {
-      const s = d.vaultchain_token as string | undefined;
+    browser.storage.session.get("caesar_token").then((d) => {
+      const s = d.caesar_token as string | undefined;
       if (s) { setToken(s); fetchEntries(s); fetchFolders(s); }
     });
     try { browser.runtime.sendMessage({ type: "POPUP_OPEN" }); } catch {}
@@ -74,7 +76,7 @@ export default function App() {
     try {
       const d = await apiUnlock(pw);
       if (d.token) {
-        await browser.storage.session.set({ vaultchain_token: d.token });
+        await browser.storage.session.set({ caesar_token: d.token });
         setToken(d.token); setPw(""); setShowPw(false);
         fetchEntries(d.token); fetchFolders(d.token);
       } else setErr("Invalid response");
@@ -84,7 +86,7 @@ export default function App() {
 
   const handleLock = async () => {
     if (token) { try { await apiLock(token); } catch (e) { console.error("[Caesar] lock failed:", e); } }
-    await browser.storage.session.remove("vaultchain_token");
+    await browser.storage.session.remove("caesar_token");
     setToken(null); setEntries([]); setView("vault"); setPanel(null); setDrawer(false);
   };
 

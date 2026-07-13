@@ -3,51 +3,44 @@ import { connectDB, disconnectDB } from "../db/connect.js";
 import { entry } from "../db/models/entry.js";
 import { encrypt } from "../crypto/aes.js";
 import { fetchKey } from "../utils/key.js";
+import { parse } from "csv-parse/sync";
 import fs from "node:fs";
 
-export async function importCommand(options: {
+export async function importCommand(input: string, options: {
   format?: string;
-  input: string;
 }) {
   try {
     const cfg = loadConfig();
     await connectDB(cfg.mongodb_uri);
     const key = await fetchKey(cfg);
 
-    const fileContent = fs.readFileSync(options.input, "utf-8");
-    const format = options.format || (options.input.endsWith(".csv") ? "csv" : "json");
+    const fileContent = fs.readFileSync(input, "utf-8");
+    const format = options.format || (input.endsWith(".csv") ? "csv" : "json");
 
     let importEntries: Array<Record<string, unknown>>;
 
     if (format === "csv") {
-      const lines = fileContent.split("\n").filter((l) => l.trim());
-      if (lines.length < 2) {
-        console.log("Empty CSV file");
+      try {
+        const records = parse(fileContent, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+          bom: true,
+          relax_column_count: true,
+        });
+        importEntries = records.map((row: unknown) => {
+          const r = row as Record<string, string>;
+          const obj: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(r)) {
+            obj[k.toLowerCase()] = v;
+          }
+          return obj;
+        });
+      } catch (csvErr: any) {
+        console.error(`CSV parse error: ${csvErr.message}`);
         await disconnectDB();
         return;
       }
-      const header = lines[0]!.split(",").map((h) => h.trim().toLowerCase());
-      importEntries = lines.slice(1).map((line) => {
-        const values: string[] = [];
-        let current = "";
-        let inQuotes = false;
-        for (const char of line) {
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === "," && !inQuotes) {
-            values.push(current);
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        values.push(current);
-        const obj: Record<string, unknown> = {};
-        header.forEach((h, i) => {
-          obj[h] = values[i] || "";
-        });
-        return obj;
-      });
     } else {
       const parsed = JSON.parse(fileContent);
       importEntries = parsed.entries || parsed;
@@ -93,9 +86,19 @@ export async function importCommand(options: {
           uris,
           notes,
           type,
+          customFields: (item.customFields as unknown[]) || [],
         };
         if (url) createData.url = url;
         if (folder) createData.folder = folder;
+
+        const totpSecret = (item.totp as string) || (item.TOTP as string) || null;
+        if (totpSecret) {
+          const totpEncrypted = encrypt(totpSecret, key);
+          createData.totp = totpEncrypted.ciphertext;
+          createData.totp_iv = totpEncrypted.iv;
+          createData.totp_auth_tag = totpEncrypted.authTag;
+        }
+
         await entry.create(createData);
         created++;
       } catch (err: any) {

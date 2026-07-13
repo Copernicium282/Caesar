@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Trash2, RotateCcw, X, AlertTriangle } from "lucide-react";
 import { useTheme } from "../shared/theme";
 import { TopBar, ServiceAvatar } from "./shared";
@@ -8,6 +9,7 @@ export default function TrashView({ token, onBack, onRestore, onDelete }: {
 }) {
   const { entries, loading, handlePurge } = useTrashLogic(token);
   const { palette: C } = useTheme();
+  const [acting, setActing] = useState<string | null>(null);
 
   return (
     <div className="view-fade flex flex-col" style={{ height: "100%" }}>
@@ -39,8 +41,24 @@ export default function TrashView({ token, onBack, onRestore, onDelete }: {
               <div className="truncate" style={{ fontSize: 12, color: C.inkMuted }}>{e.username || e.folder}</div>
             </div>
             <div className="flex items-center gap-1">
-              <button className="flex items-center justify-center rounded-md" style={{ width: 32, height: 32, background: C.accentSubtle, color: C.accent }} onClick={() => onRestore(e.name)} title="Restore"><RotateCcw size={13} /></button>
-              <button className="flex items-center justify-center rounded-md" style={{ width: 32, height: 32, background: C.errorSubtle, color: C.error }} onClick={() => onDelete(e.name)} title="Delete permanently"><X size={13} /></button>
+              <button
+                className="flex items-center justify-center rounded-md"
+                style={{ width: 32, height: 32, background: C.accentSubtle, color: C.accent, opacity: acting && acting !== e.name ? 0.5 : 1, cursor: acting ? "wait" : "pointer" }}
+                disabled={!!acting}
+                onClick={async () => { setActing(e.name); try { await onRestore(e.name); } finally { setActing(null); } }}
+                title="Restore"
+              ><RotateCcw size={13} /></button>
+              <button
+                className="flex items-center justify-center rounded-md"
+                style={{ width: 32, height: 32, background: C.errorSubtle, color: C.error, opacity: acting && acting !== e.name ? 0.5 : 1, cursor: acting ? "wait" : "pointer" }}
+                disabled={!!acting}
+                onClick={async () => {
+                  if (!confirm(`Permanently delete "${e.name}"?`)) return;
+                  setActing(e.name);
+                  try { await onDelete(e.name); } finally { setActing(null); }
+                }}
+                title="Delete permanently"
+              ><X size={13} /></button>
             </div>
           </div>
         ))}

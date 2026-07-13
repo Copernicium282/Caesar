@@ -94,9 +94,10 @@ export function ServiceAvatar({ name, url, size = 32 }: { name: string; url?: st
   return <LetterAvatar name={name} size={size} />;
 }
 
-export function EntryRow({ entry, onView, onEdit, onCopy, onFill, copied }: {
+export function EntryRow({ entry, onView, onEdit, onCopy, onCopyPassword, onFill, copied }: {
   entry: Entry; onView: () => void; onEdit: () => void;
-  onCopy: (text: string, key: string) => void; onFill: () => void; copied: string | null;
+  onCopy: (text: string, key: string) => void; onCopyPassword: (name: string, key: string) => void;
+  onFill: () => void; copied: string | null;
 }) {
   const { palette: C } = useTheme();
   const domain = entry.url?.replace(/^https?:\/\//, "").split("/")[0] ?? "";
@@ -142,7 +143,7 @@ export function EntryRow({ entry, onView, onEdit, onCopy, onFill, copied }: {
         </button>
         <button className="flex items-center justify-center rounded-md hover:bg-white/5 transition-colors"
           style={{ width: 32, height: 32, color: copied === `p-${entry.name}` ? C.accent : C.inkFaint }}
-          onClick={() => onCopy(entry.name, `p-${entry.name}`)} title="Copy password">
+          onClick={() => onCopyPassword(entry.name, `p-${entry.name}`)} title="Copy password">
           {copied === `p-${entry.name}` ? <Check size={13} /> : <Key size={13} />}
         </button>
         <button className="flex items-center justify-center rounded-md hover:bg-white/5 transition-colors"

@@ -5,7 +5,7 @@ describe("AES-256-GCM encrypt/decrypt", () => {
   const key = Buffer.alloc(32, 0x42);
 
   it("encrypts and decrypts a string round-trip", () => {
-    const plaintext = "hello vaultchain";
+    const plaintext = "hello caesar";
     const encrypted = encrypt(plaintext, key);
     expect(encrypted.ciphertext).toBeTruthy();
     expect(encrypted.iv).toBeTruthy();

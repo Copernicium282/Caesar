@@ -3,6 +3,7 @@ import https from "node:https";
 import crypto from "node:crypto";
 import path from "node:path";
 import os from "node:os";
+import morgan from "morgan";
 import { loadConfig, saveConfig } from "../config/config.js";
 import { deriveKey } from "../crypto/argon2.js";
 import {
@@ -23,16 +24,18 @@ import * as OTPAuth from "otpauth";
 import { ethers } from "ethers";
 import { loadCert, certExists } from "../crypto/tls.js";
 import { startHelia, stopHelia, addBlob, getBlob } from "../ipfs/helia.js";
+import zxcvbn from "zxcvbn";
 
 const app = express();
 const port = 9876;
 
 app.use(express.json({ limit: "16kb" }));
+app.use(morgan("short"));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Caesar-Client");
   if (req.method === "OPTIONS") { res.sendStatus(204); return; }
   next();
 });
@@ -40,17 +43,18 @@ app.use((req, res, next) => {
 let cfg = loadConfig();
 
 async function start() {
-  await connectDB(cfg.mongodb_uri);
+  const mongoUri = process.env.MONGODB_URI || cfg.mongodb_uri;
+  await connectDB(mongoUri);
   await startHelia();
 
   if (!certExists()) {
-    console.error("TLS certificate not found. Run 'vaultchain init' first.");
+    console.error("TLS certificate not found. Run 'caesar init' first.");
     process.exit(1);
   }
 
   const { cert, key } = loadCert();
-  const server = https.createServer({ cert, key }, app).listen(port, "127.0.0.1", () => {
-    console.log("VaultChain server running on https://127.0.0.1:9876");
+  const server = https.createServer({ cert, key }, app).listen(port, "0.0.0.0", () => {
+    console.log("Caesar server running on https://127.0.0.1:9876");
   });
 
   const shutdown = async () => {
@@ -95,10 +99,24 @@ app.post("/unlock", async (req, res) => {
     }
     const key = await deriveKey(MasterPwd, Buffer.from(cfg.argon2_salt, "base64"));
 
-    const sample = await entry.findOne({}).lean();
-    if (sample) {
+    const samples = await entry.aggregate([{ $sample: { size: 3 } }]);
+    let valid = false;
+    for (const s of samples) {
       try {
-        decrypt({ ciphertext: sample.encrypted_password, iv: sample.iv, authTag: sample.auth_tag }, key);
+        decrypt({ ciphertext: s.encrypted_password, iv: s.iv, authTag: s.auth_tag }, key);
+        valid = true;
+        break;
+      } catch {}
+    }
+    if (samples.length > 0 && !valid) {
+      res.status(401).json({ error: "Invalid master password" });
+      return;
+    }
+    // Empty vault: verify against the verification blob stored in config
+    if (samples.length === 0 && cfg.verification_blob) {
+      try {
+        const blob = JSON.parse(cfg.verification_blob);
+        decrypt({ ciphertext: blob.ciphertext, iv: blob.iv, authTag: blob.authTag }, key);
       } catch {
         res.status(401).json({ error: "Invalid master password" });
         return;
@@ -130,7 +148,11 @@ app.use("/", async (req, res, next) => {
       const token = auth.slice(7);
       if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
       const key = decryptSessionKey(token, sessionData);
-      (req as any).key = key;
+      req.key! = key;
+      if (!req.headers["x-caesar-client"]) {
+        res.status(403).json({ error: "Missing X-Caesar-Client header" });
+        return;
+      }
       next();
     } else {
       res.status(401).json({ error: "Unauthorized" });
@@ -185,7 +207,7 @@ app.post("/entries", async (req, res) => {
       res.status(400).json({ error: "Missing required fields: name, username, password" });
       return;
     }
-    const encrypted = encrypt(password, (req as any).key);
+    const encrypted = encrypt(password, req.key!);
     await entry.create({
       name, username,
       encrypted_password: encrypted.ciphertext, iv: encrypted.iv, auth_tag: encrypted.authTag,
@@ -225,7 +247,7 @@ app.put("/entries/:name", async (req, res) => {
         existing.passwordHistory = existing.passwordHistory.slice(-5);
       }
 
-      const encrypted = encrypt(password, (req as any).key);
+      const encrypted = encrypt(password, req.key!);
       existing.encrypted_password = encrypted.ciphertext;
       existing.iv = encrypted.iv;
       existing.auth_tag = encrypted.authTag;
@@ -314,7 +336,7 @@ app.get("/entries/:name/history", async (req, res) => {
       try {
         const decrypted = decrypt(
           { ciphertext: h.password, iv: h.iv, authTag: h.auth_tag },
-          (req as any).key,
+          req.key!,
         );
         return { password: decrypted, changedAt: h.changedAt };
       } catch {
@@ -341,7 +363,7 @@ app.get("/entries/:name/totp", async (req, res) => {
 
     const secret = decrypt(
       { ciphertext: existing.totp, iv: existing.totp_iv, authTag: existing.totp_auth_tag },
-      (req as any).key,
+      req.key!,
     );
 
     const totp = new OTPAuth.TOTP({ secret: OTPAuth.Secret.fromBase32(secret) });
@@ -366,7 +388,7 @@ app.put("/entries/:name/totp", async (req, res) => {
       return;
     }
 
-    const encrypted = encrypt(secret, (req as any).key);
+    const encrypted = encrypt(secret, req.key!);
     existing.totp = encrypted.ciphertext;
     existing.totp_iv = encrypted.iv;
     existing.totp_auth_tag = encrypted.authTag;
@@ -449,7 +471,7 @@ app.get("/entries/:name/password", async (req, res) => {
     const name = decodeURIComponent(req.params.name);
     const pwd = await entry.findOne({ name, deletedAt: null }).lean();
     if (!pwd) { res.status(404).json({ error: "Entry not found" }); return; }
-    const decrypted = decrypt({ ciphertext: pwd.encrypted_password, iv: pwd.iv, authTag: pwd.auth_tag }, (req as any).key);
+    const decrypted = decrypt({ ciphertext: pwd.encrypted_password, iv: pwd.iv, authTag: pwd.auth_tag }, req.key!);
     res.json({ password: decrypted });
   } catch {
     res.status(500).json({ error: "Failed to decrypt password" });
@@ -558,7 +580,8 @@ app.get("/generate", async (req, res) => {
 // ── Generate History ──
 const GENERATION_HISTORY_FILE = path.join(
   os.homedir(),
-  "/.vaultchain/generation-history.json",
+  ".caesar",
+  "generation-history.json",
 );
 
 async function loadGenerationHistory(): Promise<Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }>> {
@@ -572,7 +595,7 @@ async function loadGenerationHistory(): Promise<Array<{ password: string; iv: st
 async function saveGenerationHistory(history: Array<{ password: string; iv: string; auth_tag: string; length: number; type: string; createdAt: string }>) {
   const dir = path.dirname(GENERATION_HISTORY_FILE);
   await fsp.mkdir(dir, { recursive: true });
-  await fsp.writeFile(GENERATION_HISTORY_FILE, JSON.stringify(history, null, 2));
+  await fsp.writeFile(GENERATION_HISTORY_FILE, JSON.stringify(history, null, 2), { mode: 0o600 });
 }
 
 app.post("/generate/history", async (req, res) => {
@@ -582,7 +605,7 @@ app.post("/generate/history", async (req, res) => {
       res.status(400).json({ error: "Missing password" });
       return;
     }
-    const encrypted = encrypt(password, (req as any).key);
+    const encrypted = encrypt(password, req.key!);
     const history = await loadGenerationHistory();
     history.push({
       password: encrypted.ciphertext,
@@ -607,7 +630,7 @@ app.get("/generate/history", async (req, res) => {
       try {
         const pw = decrypt(
           { ciphertext: h.password, iv: h.iv, authTag: h.auth_tag },
-          (req as any).key,
+          req.key!,
         );
         return { password: pw, length: h.length, type: h.type, createdAt: h.createdAt };
       } catch {
@@ -879,6 +902,14 @@ app.post("/change-password", async (req, res) => {
         res.status(401).json({ error: "Invalid current password" });
         return;
       }
+    } else if (cfg.verification_blob) {
+      try {
+        const blob = JSON.parse(cfg.verification_blob);
+        decrypt({ ciphertext: blob.ciphertext, iv: blob.iv, authTag: blob.authTag }, oldKey);
+      } catch {
+        res.status(401).json({ error: "Invalid current password" });
+        return;
+      }
     }
 
     const newSalt = crypto.randomBytes(32).toString("base64");
@@ -936,7 +967,14 @@ app.post("/change-password", async (req, res) => {
       cfg.sepolia_vault_registry_address,
       cfg.sepolia_enabled,
     );
+    // Re-encrypt the verification blob with the new key
+    const newVerification = encrypt("caesar-vault-verification", newKey);
+    const cfgPath = path.join(os.homedir(), ".caesar", "config.json");
+    const cfgFile = JSON.parse(await fsp.readFile(cfgPath, "utf-8"));
+    cfgFile.verification_blob = JSON.stringify(newVerification);
+    await fsp.writeFile(cfgPath, JSON.stringify(cfgFile), { mode: 0o600 });
     cfg.argon2_salt = newSalt;
+    cfg.verification_blob = JSON.stringify(newVerification);
 
     await fsp.unlink(SESSION_FILE_PATH).catch(() => {});
 
@@ -947,10 +985,10 @@ app.post("/change-password", async (req, res) => {
 });
 
 // ── Vault Health ──
-app.get("/vault-health", async (_req, res) => {
+app.get("/vault-health", async (req, res) => {
   try {
     const allEntries = await entry.find({ deletedAt: null }).lean();
-    const key = (_req as any).key as Buffer;
+    const key = req.key! as Buffer;
 
     const weak: Array<{ name: string; username: string; url: string }> = [];
     const reused: Array<{ password: string; entries: Array<{ name: string; username: string; url: string }> }> = [];
@@ -965,7 +1003,8 @@ app.get("/vault-health", async (_req, res) => {
           key,
         );
 
-        if (pw.length < 12) {
+        const strength = zxcvbn(pw);
+        if (strength.score < 3) {
           weak.push({ name: e.name, username: e.username, url: e.url });
         }
 
@@ -1021,13 +1060,16 @@ app.post("/snapshot", async (_req, res) => {
 app.post("/verify", async (req, res) => {
   try {
     const { hash } = req.body || {};
-    if (!hash) return res.status(400).json({ error: "hash is required" });
     const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
     const formatted = allEntries.map(e => ({
       name: e.name, username: e.username, url: e.url, notes: e.notes,
       encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
     }));
     const currentHash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(formatted)));
+    if (!hash) {
+      res.json({ currentHash, entryCount: allEntries.length, timestamp: new Date().toISOString() });
+      return;
+    }
     res.json({ valid: currentHash === hash, currentHash, submittedHash: hash });
   } catch {
     res.status(500).json({ error: "Failed to verify snapshot" });
@@ -1035,9 +1077,9 @@ app.post("/verify", async (req, res) => {
 });
 
 // ── Sync ──
-app.post("/sync", async (_req, res) => {
+app.post("/sync", async (req, res) => {
   try {
-    const key = (_req as any).key as Buffer;
+    const key = req.key! as Buffer;
 
     const allEntries = await entry.find({ deletedAt: null }).sort("name").lean();
     const formatted = allEntries.map(e => ({
@@ -1061,7 +1103,7 @@ app.post("/sync", async (_req, res) => {
 app.post("/export", async (req, res) => {
   try {
     const { format } = req.body || {};
-    const key = (req as any).key as Buffer;
+    const key = req.key! as Buffer;
     const allEntries = await entry.find({ deletedAt: null }).lean();
 
     if (format === "csv") {
@@ -1117,7 +1159,7 @@ app.post("/export", async (req, res) => {
 app.post("/import", async (req, res) => {
   try {
     const { entries: importEntries, format } = req.body || {};
-    const key = (req as any).key as Buffer;
+    const key = req.key! as Buffer;
 
     if (!importEntries || !Array.isArray(importEntries)) {
       res.status(400).json({ error: "Missing entries array" });
@@ -1155,7 +1197,7 @@ app.post("/import", async (req, res) => {
         }
 
         const encrypted = encrypt(password, key);
-        await entry.create({
+        const createData: Record<string, unknown> = {
           name,
           username,
           encrypted_password: encrypted.ciphertext,
@@ -1166,7 +1208,18 @@ app.post("/import", async (req, res) => {
           notes,
           folder,
           type,
-        });
+          customFields: item.customFields || [],
+        };
+
+        const totpSecret = item.totp || item.TOTP || null;
+        if (totpSecret) {
+          const totpEncrypted = encrypt(totpSecret, key);
+          createData.totp = totpEncrypted.ciphertext;
+          createData.totp_iv = totpEncrypted.iv;
+          createData.totp_auth_tag = totpEncrypted.authTag;
+        }
+
+        await entry.create(createData);
         created++;
       } catch (err: any) {
         if (err?.code === 11000) skipped++;
@@ -1184,7 +1237,7 @@ app.post("/import", async (req, res) => {
 app.get("/export/cli", async (req, res) => {
   try {
     const format = (req.query.format as string) || "json";
-    const key = (req as any).key as Buffer;
+    const key = req.key! as Buffer;
     const allEntries = await entry.find({ deletedAt: null }).lean();
 
     if (format === "csv") {
@@ -1236,7 +1289,8 @@ app.get("/export/cli", async (req, res) => {
   }
 });
 
-// ── Error handler (must be last) ──
+// ── Error handler (must be last; 4 params required by Express to recognize as error handler) ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err.type === "entity.parse.failed") {
     res.status(400).json({ error: "Invalid JSON" });

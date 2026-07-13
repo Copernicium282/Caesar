@@ -27,7 +27,7 @@ export async function verifyCommand(options: { remote?: boolean }) {
     if (onChainSnapshot.snapshotHash === snapshotHash) {
       console.log(`Ethereum Sepolia Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
     } else {
-      console.warn(`Ethereum Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
+      console.warn(`Ethereum Sepolia Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'caesar snapshot' to commit.`);
     }
     return;
   }
@@ -41,7 +41,7 @@ export async function verifyCommand(options: { remote?: boolean }) {
     if (onChainSnapshot.snapshotHash === snapshotHash) {
       console.log(`Vault matches last committed snapshot (${entryCount} entries, committed at ${onChainSnapshot.timestamp})`);
     } else {
-      console.warn(`Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'vaultchain snapshot' to commit.`);
+      console.warn(`Vault has changed since last snapshot. ${entryCount} entries now vs ${onChainSnapshot.entryCount} at last commit. Run 'caesar snapshot' to commit.`);
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

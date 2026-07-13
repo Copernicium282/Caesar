@@ -8,7 +8,8 @@ import path from "node:path";
 
 export const WALLET_FILE_PATH = path.join(
   os.homedir(),
-  "/.vaultchain/wallet.json",
+  ".caesar",
+  "wallet.json",
 );
 
 export async function walletGenerate() {
@@ -29,10 +30,14 @@ export async function walletGenerate() {
     { mode: 0o600 },
   );
 
-  console.log(`VaultChain Wallet Address: ${wallet.address}`);
+  console.log(`Caesar Wallet Address: ${wallet.address}`);
 }
 
 export async function walletAddress() {
+  if (!fs.existsSync(WALLET_FILE_PATH)) {
+    console.log("No wallet found. Run 'caesar wallet generate' first.");
+    return;
+  }
   const wallet = fs.readFileSync(WALLET_FILE_PATH, "utf-8");
   console.log(JSON.parse(wallet).address);
 }

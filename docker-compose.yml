@@ -1,6 +1,8 @@
 services:
   mongo:
     image: mongo:7
+    ports:
+      - "127.0.0.1:27017:27017"
     volumes:
       - caesar_data:/data/db
     restart: unless-stopped
@@ -13,7 +15,7 @@ services:
     environment:
       - MONGODB_URI=mongodb://mongo:27017/caesar
     volumes:
-      - ~/.vaultchain:/root/.vaultchain
+      - ~/.caesar:/home/node/.caesar
     restart: unless-stopped
 
 volumes:

@@ -13,11 +13,13 @@ export async function unlockCommand() {
       Buffer.from(cfg.argon2_salt, "base64"),
     );
     const data = createSessionData(derived_key);
-    fs.writeFileSync(SESSION_FILE_PATH, JSON.stringify(data.sessionData));
+    fs.writeFileSync(SESSION_FILE_PATH, JSON.stringify(data.sessionData), { mode: 0o600 });
 
-    console.log(
-      `Session token: ${data.token}\nExport it in your shell: export VAULTCHAIN_SESSION=${data.token}\nThe session is valid for 15 minutes.`,
-    );
+    console.log(`\nToken: ${data.token}`);
+    console.log(`\nTo use without exporting manually, run:`);
+    console.log(`  export Caesar_SESSION=${data.token}`);
+    console.log(`\nOr copy the line above and paste it into your terminal.`);
+    console.log(`The session is valid for 15 minutes.`);
   } catch (error: unknown) {
     console.error(error);
   }

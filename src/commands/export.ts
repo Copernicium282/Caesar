@@ -62,7 +62,7 @@ export async function exportCommand(options: {
       data = JSON.stringify({ entries: exportData, exportedAt: new Date().toISOString() }, null, 2);
     }
 
-    const outputPath = options.output || `vaultchain-export.${format}`;
+    const outputPath = options.output || `caesar-export.${format}`;
     fs.writeFileSync(outputPath, data);
     console.log(`Exported ${allEntries.length} entries to ${outputPath}`);
 

@@ -1,9 +1,9 @@
-import { generate } from "selfsigned";
+import { createCA, createCert } from "mkcert";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-const TLS_DIR = path.join(os.homedir(), "/.vaultchain");
+const TLS_DIR = path.join(os.homedir(), ".caesar");
 const CERT_PATH = path.join(TLS_DIR, "cert.pem");
 const KEY_PATH = path.join(TLS_DIR, "key.pem");
 
@@ -15,30 +15,28 @@ export async function generateCert(): Promise<void> {
   if (!fs.existsSync(TLS_DIR)) {
     fs.mkdirSync(TLS_DIR, { recursive: true });
   }
-  const attrs = [{ name: "commonName", value: "Caesar Vault" }];
-  const notBefore = new Date();
-  const notAfter = new Date();
-  notAfter.setFullYear(notAfter.getFullYear() + 2);
 
-  const pems = await generate(attrs, {
-    notBeforeDate: notBefore,
-    notAfterDate: notAfter,
-    keySize: 2048,
-    algorithm: "sha256",
-    extensions: [
-      { name: "subjectAltName", altNames: [
-        { type: 2, value: "127.0.0.1" },
-        { type: 7, ip: "127.0.0.1" },
-      ]},
-    ],
+  const ca = await createCA({
+    organization: "Caesar Vault",
+    countryCode: "US",
+    state: "California",
+    locality: "San Francisco",
+    validity: 730,
   });
-  fs.writeFileSync(CERT_PATH, pems.cert, { mode: 0o600 });
-  fs.writeFileSync(KEY_PATH, pems.private, { mode: 0o600 });
+
+  const cert = await createCert({
+    ca: { key: ca.key, cert: ca.cert },
+    domains: ["127.0.0.1", "localhost"],
+    validity: 730,
+  });
+
+  fs.writeFileSync(CERT_PATH, cert.cert, { mode: 0o600 });
+  fs.writeFileSync(KEY_PATH, cert.key, { mode: 0o600 });
 }
 
 export function loadCert(): { cert: string; key: string } {
   if (!certExists()) {
-    throw new Error("TLS certificate not found. Run 'vaultchain init' first.");
+    throw new Error("TLS certificate not found. Run 'caesar init' first.");
   }
   return {
     cert: fs.readFileSync(CERT_PATH, "utf-8"),
