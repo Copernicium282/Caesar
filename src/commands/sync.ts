@@ -55,71 +55,71 @@ export async function syncCommand() {
   }
 
   await connectDB(cfg.mongodb_uri);
-  const localEntries = await entry.find({}).lean();
+  try {
+    const localEntries = await entry.find({}).lean();
 
-  const localMap = new Map(localEntries.map(e => [e.name, e]));
-  const remoteMap = new Map(remoteEntries.map(e => [e.name, e]));
+    const localMap = new Map(localEntries.map(e => [e.name, e]));
+    const remoteMap = new Map(remoteEntries.map(e => [e.name, e]));
 
-  const added = remoteEntries.filter(e => !localMap.has(e.name));
-  const modified = remoteEntries.filter(e => {
-    const local = localMap.get(e.name);
-    return local && local.encrypted_password !== e.encrypted_password;
-  });
-  const deleted = localEntries.filter(e => {
-    return !remoteMap.has(e.name) && !e.deletedAt;
-  });
+    const added = remoteEntries.filter(e => !localMap.has(e.name));
+    const modified = remoteEntries.filter(e => {
+      const local = localMap.get(e.name);
+      return local && local.encrypted_password !== e.encrypted_password;
+    });
+    const deleted = localEntries.filter(e => {
+      return !remoteMap.has(e.name) && !e.deletedAt;
+    });
 
-  console.log(`\nDiff summary:`);
-  console.log(`  Added: ${added.length} entries`);
-  console.log(`  Modified: ${modified.length} entries`);
-  console.log(`  Deleted: ${deleted.length} entries`);
+    console.log(`\nDiff summary:`);
+    console.log(`  Added: ${added.length} entries`);
+    console.log(`  Modified: ${modified.length} entries`);
+    console.log(`  Deleted: ${deleted.length} entries`);
 
-  if (added.length === 0 && modified.length === 0 && deleted.length === 0) {
-    console.log("\nVault is already in sync.");
+    if (added.length === 0 && modified.length === 0 && deleted.length === 0) {
+      console.log("\nVault is already in sync.");
+      return;
+    }
+
+    const rl = createInterface(stdin, stdout);
+    const choice = await rl.question("\nApply sync? (y/N): ");
+    rl.close();
+
+    if (choice !== "y" && choice !== "Y") {
+      console.log("Sync cancelled.");
+      return;
+    }
+
+    for (const e of added) {
+      const doc: Record<string, unknown> = {
+        name: e.name, username: e.username, url: e.url,
+        encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+        favorite: false, type: "login", customFields: [], passwordHistory: [],
+      };
+      if (e.notes) doc.notes = e.notes;
+      await entry.create(doc);
+    }
+
+    for (const e of modified) {
+      await entry.updateOne({ name: e.name }, { $set: {
+        encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
+      }});
+    }
+
+    for (const e of deleted) {
+      await entry.updateOne({ name: e.name }, { $set: { deletedAt: new Date() } });
+    }
+
+    console.log(`\nSync applied: ${added.length} added, ${modified.length} modified, ${deleted.length} deleted`);
+
+    const { snapshotHash } = await generateLocalHash();
+    if (snapshotHash === onChain.snapshotHash) {
+      console.log("Sync verified — local hash matches on-chain hash.");
+    } else {
+      console.warn("Hash mismatch after sync — investigate before continuing.");
+    }
+  } finally {
     await disconnectDB();
-    return;
   }
-
-  const rl = createInterface(stdin, stdout);
-  const choice = await rl.question("\nApply sync? (y/N): ");
-  rl.close();
-
-  if (choice !== "y" && choice !== "Y") {
-    console.log("Sync cancelled.");
-    await disconnectDB();
-    return;
-  }
-
-  for (const e of added) {
-    const doc: Record<string, unknown> = {
-      name: e.name, username: e.username, url: e.url,
-      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
-      favorite: false, type: "login", customFields: [], passwordHistory: [],
-    };
-    if (e.notes) doc.notes = e.notes;
-    await entry.create(doc);
-  }
-
-  for (const e of modified) {
-    await entry.updateOne({ name: e.name }, { $set: {
-      encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
-    }});
-  }
-
-  for (const e of deleted) {
-    await entry.updateOne({ name: e.name }, { $set: { deletedAt: new Date() } });
-  }
-
-  console.log(`\nSync applied: ${added.length} added, ${modified.length} modified, ${deleted.length} deleted`);
-
-  const { snapshotHash } = await generateLocalHash();
-  if (snapshotHash === onChain.snapshotHash) {
-    console.log("Sync verified — local hash matches on-chain hash.");
-  } else {
-    console.warn("Hash mismatch after sync — investigate before continuing.");
-  }
-
-  await disconnectDB();
 }
 
 async function generateLocalHash(): Promise<{ snapshotHash: string }> {

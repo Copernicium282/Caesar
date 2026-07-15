@@ -1,4 +1,11 @@
 let dismissed = false;
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 let notificationBar = null;
 
 function fillField(f, v) {
@@ -15,12 +22,12 @@ function findUsername(pwField) {
     while (prev) {
       if (
         prev.matches(
-          'input[type="text"], input[type="email"], input[type="tel"]'
+          'input[type="text"], input[type="email"], input[type="tel"], input:not([type])'
         )
       )
         return prev;
       const inputs = prev.querySelectorAll(
-        'input[type="text"], input[type="email"], input[type="tel"]'
+        'input[type="text"], input[type="email"], input[type="tel"], input:not([type])'
       );
       if (inputs.length)
         return inputs[inputs.length - 1];
@@ -37,7 +44,7 @@ function showBanner(entries) {
   if (!e) return;
   const b = document.createElement("div");
   b.id = "vc-banner";
-  b.innerHTML = `<div style="position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#3d3835;color:#fafaf9;padding:10px 14px;border-radius:6px;border:1px solid #57534e;box-shadow:0 4px 16px rgba(0,0,0,0.4);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;max-width:320px;width:calc(100% - 24px)"><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Fill ${e.name}?</div><div style="font-size:11px;color:#a8a29e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.username}</div></div><button id="vc-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Fill</button><button id="vc-no" style="background:transparent;color:#78716c;border:1px solid #44403c;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center">&times;</button></div>`;
+  b.innerHTML = `<div style="position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#3d3835;color:#fafaf9;padding:10px 14px;border-radius:6px;border:1px solid #57534e;box-shadow:0 4px 16px rgba(0,0,0,0.4);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;max-width:320px;width:calc(100% - 24px)"><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Fill ${esc(e.name)}?</div><div style="font-size:11px;color:#a8a29e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.username)}</div></div><button id="vc-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Fill</button><button id="vc-no" style="background:transparent;color:#78716c;border:1px solid #44403c;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center">&times;</button></div>`;
   document.body.appendChild(b);
   document.getElementById("vc-yes").onclick = function() {
     browser.runtime.sendMessage({ type: "FILL_ENTRY", name: e.name, username: e.username });
@@ -54,14 +61,14 @@ function showSaveNotification(data) {
   const bar = document.createElement("div");
   notificationBar = bar;
   bar.id = "vc-save-bar";
-  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#3d3835;color:#fafaf9;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:1px solid #57534e"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2" style="flex-shrink:0"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Save to Caesar?</div><div style="font-size:11px;color:#a8a29e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${data.url || window.location.href}</div></div><button id="vc-save-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Save</button><button id="vc-save-no" style="background:transparent;color:#78716c;border:1px solid #44403c;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
+  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#3d3835;color:#fafaf9;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:1px solid #57534e"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2" style="flex-shrink:0"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Save to Caesar?</div><div style="font-size:11px;color:#a8a29e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(data.url || window.location.href)}</div></div><button id="vc-save-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Save</button><button id="vc-save-no" style="background:transparent;color:#78716c;border:1px solid #44403c;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
   document.body.appendChild(bar);
 
   document.getElementById("vc-save-yes").onclick = function() {
     browser.runtime.sendMessage({
       type: "SAVE_LOGIN",
-      username: "",
-      password: "",
+      username: data.username || "",
+      password: data.password || "",
       url: data.url || window.location.href,
     });
     bar.remove();
@@ -86,7 +93,7 @@ function showUpdateNotification(data) {
   const bar = document.createElement("div");
   notificationBar = bar;
   bar.id = "vc-update-bar";
-  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#3d3835;color:#fafaf9;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:1px solid #57534e"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2" style="flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Update ${data.entryName}?</div><div style="font-size:11px;color:#a8a29e">Password changed on this page</div></div><button id="vc-update-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Update</button><button id="vc-update-no" style="background:transparent;color:#78716c;border:1px solid #44403c;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
+  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#3d3835;color:#fafaf9;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:1px solid #57534e"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="2" style="flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><div style="flex:1;min-width:0"><div style="font-weight:600;color:#fafaf9">Update ${esc(data.entryName)}?</div><div style="font-size:11px;color:#a8a29e">Password changed on this page</div></div><button id="vc-update-yes" style="background:#c9a84c;color:#1c1917;border:none;padding:6px 12px;border-radius:4px;font-weight:600;cursor:pointer;flex-shrink:0;font-size:11px;font-family:inherit">Update</button><button id="vc-update-no" style="background:transparent;color:#78716c;border:1px solid #44403c;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
   document.body.appendChild(bar);
 
   document.getElementById("vc-update-yes").onclick = function() {
@@ -110,16 +117,6 @@ function showUpdateNotification(data) {
       notificationBar = null;
     }
   }, 10000);
-}
-
-function detectPasswordChange() {
-  const pwFields = document.querySelectorAll('input[type="password"]');
-  pwFields.forEach(function(pwField) {
-    const input = pwField;
-    if (input.value && input.value.length > 0) {
-      // Track changes for update detection
-    }
-  });
 }
 
 browser.runtime.onMessage.addListener(function(msg) {
@@ -154,7 +151,7 @@ function showPhishingWarning(reason) {
   if (document.getElementById("vc-phishing-warning")) return;
   const bar = document.createElement("div");
   bar.id = "vc-phishing-warning";
-  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#7f1d1d;color:#fef2f2;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:2px solid #dc2626"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div style="flex:1"><div style="font-weight:700;color:#fca5a5">Phishing Warning</div><div style="font-size:11px;color:#fecaca">${reason || "Suspicious site detected"}</div></div><button id="vc-phishing-dismiss" style="background:transparent;color:#fca5a5;border:1px solid #dc2626;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
+  bar.innerHTML = `<div style="position:fixed;top:0;left:0;right:0;background:#7f1d1d;color:#fef2f2;padding:10px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;z-index:2147483647;display:flex;align-items:center;gap:10px;border-bottom:2px solid #dc2626"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div style="flex:1"><div style="font-weight:700;color:#fca5a5">Phishing Warning</div><div style="font-size:11px;color:#fecaca">${esc(reason || "Suspicious site detected")}</div></div><button id="vc-phishing-dismiss" style="background:transparent;color:#fca5a5;border:1px solid #dc2626;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit">Dismiss</button></div>`;
   document.body.appendChild(bar);
   document.getElementById("vc-phishing-dismiss").onclick = function() {
     bar.remove();
@@ -193,10 +190,4 @@ document.addEventListener(
   true
 );
 
-// Detect password field changes for update detection
-document.addEventListener("input", function(e) {
-  const target = e.target;
-  if (target && target.type === "password" && target.value) {
-    detectPasswordChange();
-  }
-});
+

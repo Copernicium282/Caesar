@@ -8,15 +8,15 @@ import { encrypt } from "../crypto/aes.js";
 import { fetchKey } from "../utils/key.js";
 
 export async function updateCommand(name: string) {
+  const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
   try {
-    const cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
     const key = await fetchKey(cfg);
 
     const pwd = await entry.findOne({ name: name, deletedAt: null });
     if (pwd === null) {
       console.log(`Entry not found: ${name}`);
-      process.exit(1);
+      return;
     }
 
     const rl = createInterface(stdin, stdout);
@@ -24,21 +24,34 @@ export async function updateCommand(name: string) {
     const newName = await rl.question(`Name (${pwd.name}): `);
     if (newName) pwd.name = newName;
     let pwdName = pwd.name;
-    pwd.username = await rl.question(`Username (${pwd.username}): `);
+    const newUsername = await rl.question(`Username (${pwd.username}): `);
+    if (newUsername) pwd.username = newUsername;
     let plainPwd = await readPassword(`Password: `);
-    let encryptedPwd = encrypt(plainPwd, key);
-    pwd.encrypted_password = encryptedPwd.ciphertext;
-    pwd.iv = encryptedPwd.iv;
-    pwd.auth_tag = encryptedPwd.authTag;
+    if (plainPwd) {
+      pwd.passwordHistory.push({
+        password: pwd.encrypted_password,
+        iv: pwd.iv,
+        auth_tag: pwd.auth_tag,
+        changedAt: new Date(),
+      });
+      if (pwd.passwordHistory.length > 5) {
+        pwd.passwordHistory = pwd.passwordHistory.slice(-5);
+      }
+      let encryptedPwd = encrypt(plainPwd, key);
+      pwd.encrypted_password = encryptedPwd.ciphertext;
+      pwd.iv = encryptedPwd.iv;
+      pwd.auth_tag = encryptedPwd.authTag;
+    }
     let url = await rl.question(`URL (${pwd.url}): `);
     if (url !== "") pwd.url = url;
     let notes = await rl.question(`Notes (${pwd.notes}): `);
     if (notes !== "") pwd.notes = notes;
     await pwd.save();
 
-    await disconnectDB();
     console.log(`Entry updated: ${pwdName}`);
   } catch (error: unknown) {
     console.log(error);
+  } finally {
+    await disconnectDB();
   }
 }

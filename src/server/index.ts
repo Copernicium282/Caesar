@@ -16,6 +16,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { entry } from "../db/models/entry.js";
 import { folder } from "../db/models/folder.js";
+import mongoose from 'mongoose';
 import { decrypt, encrypt } from "../crypto/aes.js";
 import { connectDB } from "../db/connect.js";
 import { matchEntries } from "../utils/domain-match.js";
@@ -33,10 +34,12 @@ app.use(express.json({ limit: "16kb" }));
 app.use(morgan("short"));
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Caesar-Client");
-  if (req.method === "OPTIONS") { res.sendStatus(204); return; }
+  const origin = req.headers.origin || '';
+  const allowed = origin.startsWith('moz-extension://') || origin === 'https://127.0.0.1:9876' || origin === 'http://127.0.0.1:9876';
+  res.setHeader('Access-Control-Allow-Origin', allowed ? origin : 'https://127.0.0.1:9876');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Caesar-Client');
+  if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
   next();
 });
 
@@ -60,6 +63,7 @@ async function start() {
   const shutdown = async () => {
     server.close();
     await stopHelia();
+    await mongoose.disconnect();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
@@ -77,6 +81,7 @@ function checkUnlockRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = unlockAttempts.get(ip);
   if (!entry || now > entry.resetAt) {
+    unlockAttempts.delete(ip);
     unlockAttempts.set(ip, { count: 1, resetAt: now + 60_000 });
     return true;
   }
@@ -97,7 +102,8 @@ app.post("/unlock", async (req, res) => {
       res.status(400).json({ error: "Missing or invalid MasterPwd" });
       return;
     }
-    const key = await deriveKey(MasterPwd, Buffer.from(cfg.argon2_salt, "base64"));
+    const currentCfg = loadConfig();
+    const key = await deriveKey(MasterPwd, Buffer.from(currentCfg.argon2_salt, "base64"));
 
     const samples = await entry.aggregate([{ $sample: { size: 3 } }]);
     let valid = false;
@@ -113,9 +119,9 @@ app.post("/unlock", async (req, res) => {
       return;
     }
     // Empty vault: verify against the verification blob stored in config
-    if (samples.length === 0 && cfg.verification_blob) {
+    if (samples.length === 0 && currentCfg.verification_blob) {
       try {
-        const blob = JSON.parse(cfg.verification_blob);
+        const blob = JSON.parse(currentCfg.verification_blob);
         decrypt({ ciphertext: blob.ciphertext, iv: blob.iv, authTag: blob.authTag }, key);
       } catch {
         res.status(401).json({ error: "Invalid master password" });
@@ -910,6 +916,9 @@ app.post("/change-password", async (req, res) => {
         res.status(401).json({ error: "Invalid current password" });
         return;
       }
+    } else {
+      res.status(401).json({ error: 'Unable to verify current password' });
+      return;
     }
 
     const newSalt = crypto.randomBytes(32).toString("base64");
@@ -942,8 +951,18 @@ app.post("/change-password", async (req, res) => {
           update.totp_iv = totpReEncrypted.iv;
           update.totp_auth_tag = totpReEncrypted.authTag;
         }
-        await entry.updateOne({ _id: d._id }, { $set: update });
+        // Re-encrypt password history entries with new key
         const orig = allEntries.find(e => e._id === d._id);
+        if (orig?.passwordHistory?.length) {
+          update.passwordHistory = orig.passwordHistory.map((h: any) => {
+            try {
+              const oldPw = decrypt({ ciphertext: h.password, iv: h.iv, authTag: h.auth_tag }, oldKey);
+              const reEnc = encrypt(oldPw, newKey);
+              return { password: reEnc.ciphertext, iv: reEnc.iv, auth_tag: reEnc.authTag, changedAt: h.changedAt };
+            } catch { return h; }
+          });
+        }
+        await entry.updateOne({ _id: d._id }, { $set: update });
         if (orig) updated.push(orig);
       }
     } catch (writeErr) {
@@ -973,8 +992,7 @@ app.post("/change-password", async (req, res) => {
     const cfgFile = JSON.parse(await fsp.readFile(cfgPath, "utf-8"));
     cfgFile.verification_blob = JSON.stringify(newVerification);
     await fsp.writeFile(cfgPath, JSON.stringify(cfgFile), { mode: 0o600 });
-    cfg.argon2_salt = newSalt;
-    cfg.verification_blob = JSON.stringify(newVerification);
+    cfg = loadConfig();
 
     await fsp.unlink(SESSION_FILE_PATH).catch(() => {});
 

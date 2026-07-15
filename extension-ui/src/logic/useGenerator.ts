@@ -23,9 +23,16 @@ export function useGeneratorLogic(token: string) {
   const regen = useCallback(async () => {
     if (mode === "password") {
       const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*_+=";
-      const arr = new Uint8Array(len);
+      const arr = new Uint8Array(len * 2); // over-allocate for rejection
       crypto.getRandomValues(arr);
-      setOut(Array.from(arr, b => pool[b % pool.length]).join(""));
+      const maxValid = Math.floor(256 / pool.length) * pool.length;
+      const result: string[] = [];
+      for (let i = 0; i < arr.length && result.length < len; i++) {
+        if (arr[i] < maxValid) {
+          result.push(pool[arr[i] % pool.length]);
+        }
+      }
+      setOut(result.join(""));
     } else {
       try {
         const d = await generatePassphrase(words, sep, cap, token);

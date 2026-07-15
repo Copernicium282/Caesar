@@ -52,10 +52,10 @@ step() {
 confirm() {
   echo ""
   echo -e "  ${RED}${BOLD}This will remove:${RESET}"
-  echo -e "    ${MUTED}~/.caesar/${RESET}          vault data, TLS certs, wallet"
-  echo -e "    ${MUTED}caesar${RESET}               globally installed CLI"
-  echo -e "    ${MUTED}caesar-caesar${RESET}        Docker image & containers"
-  echo -e "    ${MUTED}vaultchain_caesar_data${RESET}  MongoDB volume"
+  echo -e "    ${MUTED}~/.caesar/${RESET}             vault data, TLS certs, wallet"
+  echo -e "    ${MUTED}caesar${RESET}                  globally installed CLI"
+  echo -e "    ${MUTED}vaultchain Docker resources${RESET}  containers, images, volumes"
+  echo -e "    ${MUTED}Caesar Vault CA${RESET}         from Firefox/NSS trust stores"
   echo ""
   echo -ne "  ${RED}${BOLD}Are you sure? (y/N): ${RESET}"
   read -r choice
@@ -65,27 +65,47 @@ confirm() {
   fi
 }
 
+# ─── Remove CA from Firefox/NSS ────────────────────────────────────────
+remove_ca() {
+  local shared_nss="$HOME/.pki/nssdb"
+  if [ -f "$shared_nss/cert9.db" ]; then
+    certutil -d "sql:$shared_nss" -D -n "Caesar Vault CA" 2>/dev/null && ok "CA removed from shared NSS" || true
+  fi
+
+  for base_dir in "$HOME/.mozilla/firefox" "$HOME/.config/mozilla/firefox" "$HOME/.zen" "$HOME/.config/zen"; do
+    [ -d "$base_dir" ] || continue
+    for profile in "$base_dir"/*/; do
+      if [ -f "${profile}cert9.db" ]; then
+        certutil -d "sql:${profile}" -D -n "Caesar Vault CA" 2>/dev/null && ok "CA removed from $(basename "$profile")" || true
+      fi
+    done
+  done
+}
+
 # ─── Main Flow ──────────────────────────────────────────────────────────
 main() {
   show_logo
 
   confirm
 
-  # ── Step 1: Stop containers ──
-  step "Stopping containers"
-  if docker ps -q --filter "name=vaultchain" 2>/dev/null | grep -q .; then
-    docker compose -f "$(dirname "$0")/../docker-compose.yml" down 2>/dev/null || true
-    ok "Containers stopped"
+  # ── Step 1: Stop and remove Docker resources ──
+  step "Removing Docker resources"
+  local compose_file
+  compose_file="$(dirname "$0")/../docker-compose.yml"
+  if docker compose -f "$compose_file" down --volumes --rmi local 2>/dev/null; then
+    ok "Docker containers, images, and volumes removed"
   else
-    info "No running containers"
+    # Fallback: try manual cleanup
+    if docker ps -a --filter "name=vaultchain" --format '{{.Names}}' 2>/dev/null | grep -q .; then
+      docker rm -f $(docker ps -a --filter "name=vaultchain" -q) 2>/dev/null && ok "Containers removed" || info "No containers to remove"
+    else
+      info "No running containers"
+    fi
   fi
 
-  # ── Step 2: Remove Docker resources ──
-  step "Removing Docker resources"
-  docker rm -f vaultchain-caesar-1 vaultchain-mongo-1 2>/dev/null && ok "Containers removed" || info "No containers to remove"
-  docker image rm vaultchain-caesar 2>/dev/null && ok "Image removed" || info "No image to remove"
-  docker volume rm vaultchain_caesar_data 2>/dev/null && ok "Volume removed" || info "No volume to remove"
-  docker network rm vaultchain_default 2>/dev/null && ok "Network removed" || info "No network to remove"
+  # ── Step 2: Remove CA from Firefox trust stores ──
+  step "Removing CA from browser trust stores"
+  remove_ca
 
   # ── Step 3: Uninstall npm package ──
   step "Uninstalling npm package"
@@ -98,16 +118,14 @@ main() {
   # ── Step 4: Remove vault data ──
   step "Removing vault data"
   if [ -d "$HOME/.caesar" ]; then
-    # Root-owned files from Docker need sudo
-    if [ -n "$(find "$HOME/.caesar" -user root 2>/dev/null)" ]; then
-      info "Some files owned by root (from Docker), using sudo..."
-      sudo chmod -R 777 "$HOME/.caesar" 2>/dev/null || true
+    if ! rm -rf "$HOME/.caesar" 2>/dev/null || [ -d "$HOME/.caesar" ]; then
+      info "Some files need elevated permissions, using sudo..."
+      sudo rm -rf "$HOME/.caesar" 2>/dev/null
     fi
-    rm -rf "$HOME/.caesar" 2>/dev/null
     if [ ! -d "$HOME/.caesar" ]; then
       ok "Vault data removed (~/.caesar/)"
     else
-      fail "Could not fully remove ~/.caesar/ — some files may need manual cleanup"
+      fail "Could not fully remove ~/.caesar/ — manual cleanup needed"
       info "Run: sudo rm -rf $HOME/.caesar"
     fi
   else

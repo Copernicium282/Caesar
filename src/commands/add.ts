@@ -14,10 +14,10 @@ export async function addCommand(options: {
 }) {
   const cfg = loadConfig();
   await connectDB(cfg.mongodb_uri);
-  const key = await fetchKey(cfg);
-  const rl = createInterface(stdin, stdout);
-
   try {
+    const key = await fetchKey(cfg);
+    const rl = createInterface(stdin, stdout);
+
     const name = await rl.question("Enter Name: ");
     const username = await rl.question("Enter Username: ");
 
@@ -52,9 +52,10 @@ export async function addCommand(options: {
     if (notes) createData.notes = notes;
     await entry.create(createData);
 
-    await disconnectDB();
     console.log(`Entry saved: ${name}`);
   } catch (error: unknown) {
     console.error(error);
+  } finally {
+    await disconnectDB();
   }
 }

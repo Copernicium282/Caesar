@@ -18,7 +18,7 @@ export function useFolderManagerLogic(token: string) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [token]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;

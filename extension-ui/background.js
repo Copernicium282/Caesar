@@ -12,6 +12,12 @@ browser.storage.local.get("autoLockTimeout").then((d) => {
   if (d.autoLockTimeout) AUTO_LOCK_MS = d.autoLockTimeout;
 });
 
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.autoLockTimeout) {
+    AUTO_LOCK_MS = changes.autoLockTimeout.newValue || 15 * 60 * 1000;
+  }
+});
+
 // ── Phishing Detection ──
 const PHISHING_INDICATORS = [
   /login-[a-z0-9]+\.com/i,
@@ -143,11 +149,23 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
       );
       if (!pwRes.ok) return;
       const { password } = await pwRes.json();
-      browser.tabs.sendMessage(tab.id, {
-        type: "FILL_CREDENTIALS",
-        username: entry.username,
-        password,
-      });
+      try {
+        await browser.tabs.sendMessage(tab.id, {
+          type: "FILL_CREDENTIALS",
+          username: entry.username,
+          password,
+        });
+      } catch {
+        try {
+          await browser.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/fill.js'] });
+          await new Promise(r => setTimeout(r, 300));
+          await browser.tabs.sendMessage(tab.id, {
+            type: "FILL_CREDENTIALS",
+            username: entry.username,
+            password,
+          });
+        } catch {}
+      }
     } catch {}
   }
 

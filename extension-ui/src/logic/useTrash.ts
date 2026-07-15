@@ -11,8 +11,12 @@ export function useTrashLogic(token: string) {
   }, [token]);
 
   const handlePurge = async () => {
-    await purgeTrash(token);
-    setEntries([]);
+    try {
+      await purgeTrash(token);
+      setEntries([]);
+    } catch (e) {
+      console.error("Purge failed:", e);
+    }
   };
 
   return { entries, loading, handlePurge };

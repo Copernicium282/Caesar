@@ -36,7 +36,7 @@ export default function DetailView({ entry, token, onBack, onEdit, onDelete, onC
         }
       />
 
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "none" }}>
         <div className="flex items-center gap-3 py-1">
           <ServiceAvatar name={entry.name} url={entry.url} size={32} />
           <div>

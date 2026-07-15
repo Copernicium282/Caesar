@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { program } from "commander";
 import { execSync } from "node:child_process";
+import path from "node:path";
+import fs from "node:fs";
 import { initCommand } from "./commands/init.js";
 import { addCommand } from "./commands/add.js";
 import { getCommand } from "./commands/get.js";
@@ -33,6 +35,17 @@ const VCv1 = program
   .name("caesar")
   .description("CLI password manager")
   .version("0.1.0");
+
+function detectBrowser(): string {
+  const zenPaths = [
+    path.join(process.env.HOME || "", ".zen"),
+    path.join(process.env.HOME || "", ".config", "zen"),
+  ];
+  for (const p of zenPaths) {
+    if (fs.existsSync(p)) return "zen";
+  }
+  return "firefox";
+}
 
 const init = program
   .command("init")
@@ -280,13 +293,39 @@ program
       console.log("Building extension...");
       execSync("cd extension-ui && npm run build", { stdio: "inherit" });
       console.log("\nExtension built: extension-ui/dist/");
+      try {
+        execSync("cd extension-ui && npx web-ext build -s dist -a artifacts --overwrite-dest", { stdio: "inherit" });
+        console.log("Packaged: extension-ui/artifacts/");
+      } catch {
+        console.log("(web-ext packaging skipped)");
+      }
       console.log("\nTo load in Firefox:");
       console.log("1. Open about:debugging#/runtime/this-firefox");
       console.log("2. Click 'Load Temporary Add-on'");
       console.log("3. Select extension-ui/dist/manifest.json");
-      console.log("\nNote: Visit https://127.0.0.1:9876 in Firefox first to accept the self-signed cert.");
     } catch {
       console.error("Failed to build extension.");
+      process.exit(1);
+    }
+  });
+
+program
+  .command("launch")
+  .description("Open Firefox/Zen with the extension auto-loaded (requires web-ext)")
+  .option("-b, --browser <browser>", "Browser to launch (firefox or zen)", detectBrowser())
+  .action((opts) => {
+    const composeFile = path.resolve(process.cwd(), "docker-compose.yml");
+    try {
+      execSync("docker compose up -d", { stdio: "inherit", cwd: path.dirname(composeFile) });
+    } catch {
+      console.error("Failed to start Docker services. Is Docker running?");
+      process.exit(1);
+    }
+    console.log("Server starting...\n");
+    try {
+      execSync(`cd extension-ui && npx web-ext run -s dist --firefox=${opts.browser}`, { stdio: "inherit" });
+    } catch {
+      console.error(`\nFailed to launch ${opts.browser}. Install web-ext: cd extension-ui && npm install`);
       process.exit(1);
     }
   });

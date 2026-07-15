@@ -33,13 +33,13 @@ export async function snapshotCommand(options: { remote?: boolean }) {
         name: e.name, username: e.username, url: e.url, notes: e.notes,
         encrypted_password: e.encrypted_password, iv: e.iv, auth_tag: e.auth_tag,
       }));
-      await disconnectDB();
 
       const jsonStr = JSON.stringify(formatted);
       const encrypted = encrypt(jsonStr, key);
       const blob = Buffer.from(JSON.stringify(encrypted));
       cid = await addBlob(blob);
     } finally {
+      await disconnectDB();
       await stopHelia();
     }
 
@@ -55,6 +55,7 @@ export async function snapshotCommand(options: { remote?: boolean }) {
     });
     await tx.wait();
     console.log(`Snapshot committed to Ethereum Sepolia\ntx: ${tx.hash}, entries: ${entryCount}, CID: ${cid}`);
+    return;
   }
 
   try {

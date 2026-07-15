@@ -9,6 +9,10 @@ export async function deriveKey(
       raw: true,
       salt: salt,
       type: argon2.argon2id,
+      memoryCost: 262144,
+      timeCost: 4,
+      parallelism: 1,
+      hashLength: 32,
     });
     return hash;
   } catch (err) {

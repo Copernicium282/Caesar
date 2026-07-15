@@ -9,9 +9,9 @@ export async function exportCommand(options: {
   format?: string;
   output?: string;
 }) {
+  const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
   try {
-    const cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
     const key = await fetchKey(cfg);
 
     const format = options.format || "json";
@@ -65,9 +65,9 @@ export async function exportCommand(options: {
     const outputPath = options.output || `caesar-export.${format}`;
     fs.writeFileSync(outputPath, data);
     console.log(`Exported ${allEntries.length} entries to ${outputPath}`);
-
-    await disconnectDB();
   } catch (error) {
     console.error("Export failed:", error);
+  } finally {
+    await disconnectDB();
   }
 }

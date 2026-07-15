@@ -19,7 +19,7 @@ export default function GeneratorView({ onBack, token }: { onBack: () => void; t
   return (
     <div className="view-fade flex flex-col" style={{ height: "100%" }}>
       <TopBar title="Generator" showBack onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4" style={{ scrollbarWidth: "none" }}>
         <div className="flex gap-2">
           {(["password", "passphrase"] as const).map(m => (
             <button key={m} className="flex-1 rounded-md transition-colors"

@@ -3,10 +3,9 @@ import { connectDB, disconnectDB } from "../db/connect.js";
 import { entry } from "../db/models/entry.js";
 
 export async function searchCommand(query: string) {
+  const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
   try {
-    const cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
-
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const result = await entry
       .find({
@@ -21,7 +20,7 @@ export async function searchCommand(query: string) {
       .lean();
     if (result.length === 0) {
       console.log(`No entries found matching: ${query}`);
-      process.exit(0);
+      return;
     }
     console.table(
       result.map((e) => ({
@@ -31,9 +30,9 @@ export async function searchCommand(query: string) {
         Notes: e.notes,
       })),
     );
-
-    await disconnectDB();
   } catch (error: unknown) {
     console.error(error);
+  } finally {
+    await disconnectDB();
   }
 }

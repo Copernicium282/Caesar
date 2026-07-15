@@ -9,9 +9,9 @@ import fs from "node:fs";
 export async function importCommand(input: string, options: {
   format?: string;
 }) {
+  const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
   try {
-    const cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
     const key = await fetchKey(cfg);
 
     const fileContent = fs.readFileSync(input, "utf-8");
@@ -20,33 +20,26 @@ export async function importCommand(input: string, options: {
     let importEntries: Array<Record<string, unknown>>;
 
     if (format === "csv") {
-      try {
-        const records = parse(fileContent, {
-          columns: true,
-          skip_empty_lines: true,
-          trim: true,
-          bom: true,
-          relax_column_count: true,
-        });
-        importEntries = records.map((row: unknown) => {
-          const r = row as Record<string, string>;
-          const obj: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(r)) {
-            obj[k.toLowerCase()] = v;
-          }
-          return obj;
-        });
-      } catch (csvErr: any) {
-        console.error(`CSV parse error: ${csvErr.message}`);
-        await disconnectDB();
-        return;
-      }
+      const records = parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true,
+        relax_column_count: true,
+      });
+      importEntries = records.map((row: unknown) => {
+        const r = row as Record<string, string>;
+        const obj: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(r)) {
+          obj[k.toLowerCase()] = v;
+        }
+        return obj;
+      });
     } else {
       const parsed = JSON.parse(fileContent);
       importEntries = parsed.entries || parsed;
       if (!Array.isArray(importEntries)) {
         console.log("Invalid JSON format");
-        await disconnectDB();
         return;
       }
     }
@@ -108,8 +101,9 @@ export async function importCommand(input: string, options: {
     }
 
     console.log(`Import complete: ${created} created, ${skipped} skipped`);
-    await disconnectDB();
   } catch (error) {
     console.error("Import failed:", error);
+  } finally {
+    await disconnectDB();
   }
 }

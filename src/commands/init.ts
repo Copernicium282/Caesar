@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { deriveKey } from "../crypto/argon2.js";
 import { configPath, saveConfig } from "../config/config.js";
 import { promptMasterPassword } from "../utils/prompt.js";
-import { certExists, generateCert } from "../crypto/tls.js";
+import { certExists, generateCert, trustCAInFirefox } from "../crypto/tls.js";
 import { encrypt } from "../crypto/aes.js";
 
 export async function initCommand() {
@@ -42,5 +42,10 @@ export async function initCommand() {
   if (!certExists()) {
     await generateCert();
     console.log("TLS certificate generated at ~/.caesar/cert.pem");
+    if (trustCAInFirefox()) {
+      console.log("CA certificate installed in Firefox trust store");
+    } else {
+      console.log("To trust the cert in Firefox: import ~/.caesar/ca.pem into Authorities");
+    }
   }
 }

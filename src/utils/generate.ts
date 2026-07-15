@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 export async function generatePassword(length?: number) {
-  const len = length || 20;
+  const len = length ?? 20;
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
   const charsLength = chars.length;

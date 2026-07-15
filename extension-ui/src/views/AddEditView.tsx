@@ -44,7 +44,7 @@ export default function AddEditView({ entry, token, folders, onBack, onSave }: {
               </div>
             </div>
             {(form.password as string)?.length > 0 && (
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-2.5">
                 <div className="flex-1 rounded-sm overflow-hidden" style={{ height: 3, background: C.hairline }}>
                   <div className="rounded-sm transition-all" style={{ width: `${(str.score / 5) * 100}%`, height: "100%", background: str.color }} />
                 </div>

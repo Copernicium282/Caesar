@@ -66,6 +66,20 @@ export async function changePasswordCommand() {
           update.totp_auth_tag = totpReEncrypted.authTag;
         }
         await entry.updateOne({ _id: d._id }, { $set: update });
+
+        // Re-encrypt password history
+        const fresh = await entry.findById(d._id).lean();
+        if (fresh?.passwordHistory?.length) {
+          const updatedHistory = fresh.passwordHistory.map((h: any) => {
+            try {
+              const oldPw = decrypt({ ciphertext: h.password, iv: h.iv, authTag: h.auth_tag }, oldKey);
+              const reEnc = encrypt(oldPw, newKey);
+              return { password: reEnc.ciphertext, iv: reEnc.iv, auth_tag: reEnc.authTag, changedAt: h.changedAt };
+            } catch { return h; }
+          });
+          await entry.updateOne({ _id: d._id }, { $set: { passwordHistory: updatedHistory } });
+        }
+
         const orig = allEntries.find(e => e._id === d._id);
         if (orig) updated.push(orig);
       }

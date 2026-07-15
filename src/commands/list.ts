@@ -3,10 +3,9 @@ import { connectDB, disconnectDB } from "../db/connect.js";
 import { entry } from "../db/models/entry.js";
 
 export async function listCommand(options: { json?: boolean }) {
+  const cfg = loadConfig();
+  await connectDB(cfg.mongodb_uri);
   try {
-    const cfg = loadConfig();
-    await connectDB(cfg.mongodb_uri);
-
     const list = await entry.find({ deletedAt: null }).lean();
     if (list.length === 0) {
       console.log("No entries found.");
@@ -14,7 +13,21 @@ export async function listCommand(options: { json?: boolean }) {
     }
 
     if (options.json === true) {
-      console.log(JSON.stringify(list, null, 2));
+      const sanitized = list.map((e: any) => ({
+        name: e.name,
+        username: e.username,
+        url: e.url,
+        uris: e.uris || [],
+        notes: e.notes || '',
+        folder: e.folder || null,
+        favorite: e.favorite || false,
+        type: e.type || 'login',
+        customFields: e.customFields || [],
+        hasTotp: !!(e.totp && e.totp_iv && e.totp_auth_tag),
+        createdAt: e.createdAt,
+        updatedAt: e.updatedAt,
+      }));
+      console.log(JSON.stringify(sanitized, null, 2));
     } else {
       console.table(
         list.map((e) => ({
@@ -26,9 +39,9 @@ export async function listCommand(options: { json?: boolean }) {
         })),
       );
     }
-
-    await disconnectDB();
   } catch (error: unknown) {
     console.log(error);
+  } finally {
+    await disconnectDB();
   }
 }

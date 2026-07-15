@@ -79,19 +79,17 @@ export function LetterAvatar({ name, size = 32 }: { name: string; size?: number 
 export function ServiceAvatar({ name, url, size = 32 }: { name: string; url?: string; size?: number }) {
   const { palette: C } = useTheme();
   const domain = url?.replace(/^https?:\/\//, "").split("/")[0] || "";
-  const [imgError, setImgError] = useState(false);
+  const letter = (domain || "?")[0].toUpperCase();
+  const hue = domain ? Array.from(domain).reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0) : 0;
 
-  if (domain && !imgError) {
-    return (
-      <img
-        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
-        style={{ width: size, height: size, borderRadius: 4, flexShrink: 0, background: C.surfaceRaised }}
-        onError={() => setImgError(true)}
-        alt=""
-      />
-    );
-  }
-  return <LetterAvatar name={name} size={size} />;
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 4, flexShrink: 0,
+      background: `hsl(${hue}, 60%, 30%)`, color: "#fafaf9",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 12, fontWeight: 600,
+    }}>{letter}</div>
+  );
 }
 
 export function EntryRow({ entry, onView, onEdit, onCopy, onCopyPassword, onFill, copied }: {
