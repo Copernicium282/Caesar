@@ -37,14 +37,28 @@ const VCv1 = program
   .version("0.1.0");
 
 function detectBrowser(): string {
-  const zenPaths = [
+  const zenConfigPaths = [
     path.join(process.env.HOME || "", ".zen"),
     path.join(process.env.HOME || "", ".config", "zen"),
   ];
-  for (const p of zenPaths) {
-    if (fs.existsSync(p)) return "zen";
+  for (const p of zenConfigPaths) {
+    if (fs.existsSync(p)) {
+      const zenBin = findZenBinary();
+      if (zenBin) return zenBin;
+      return "zen";
+    }
   }
   return "firefox";
+}
+
+function findZenBinary(): string | null {
+  const candidates = ["/usr/bin/zen-browser", "/usr/bin/zen", "/usr/local/bin/zen-browser"];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  try {
+    return execSync("which zen-browser 2>/dev/null || which zen 2>/dev/null", { encoding: "utf-8" }).trim() || null;
+  } catch { return null; }
 }
 
 const init = program

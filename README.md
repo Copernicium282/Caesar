@@ -1,21 +1,47 @@
-# Caesar
+<h1 align="center">
+  <code>CAESAR</code>
+</h1>
 
-A self-sovereign password manager where your encrypted vault never touches a third-party server.
+<p align="center">
+  A self-sovereign password manager where your encrypted vault never touches a third-party server.
+</p>
+
+<p align="center">
+  <a href="#requirements">Requirements</a> &bull;
+  <a href="#install">Install</a> &bull;
+  <a href="#uninstall">Uninstall</a> &bull;
+  <a href="#quickstart">Quickstart</a> &bull;
+  <a href="#cli-reference">CLI</a> &bull;
+  <a href="#server-endpoints">API</a> &bull;
+  <a href="#security-model">Security</a>
+</p>
+
+---
 
 ## Requirements
 
-- Node.js 22+
-- Docker
-- Firefox
+| Dependency | Version | Notes |
+|------------|---------|-------|
+| Node.js | 22+ | LTS required for native crypto |
+| Docker | latest | MongoDB + Express run in containers |
+| Firefox or Zen Browser | latest | Extension target (auto-detected) |
+
+Optional: `mkcert` for auto-trusted TLS (recommended). Falls back to self-signed if absent.
 
 ## Install
 
 ```bash
-git clone <repo-url> && cd VaultChain
+git clone https://github.com/Copernicium282/Caesar.git && cd Caesar
 ./scripts/install.sh
 ```
 
-The installer checks dependencies, builds and installs Caesar globally, initializes your vault, starts the server, and builds the Firefox extension — all in one command.
+The installer runs a 5-phase TUI with progress bar:
+
+1. **Dependencies** -- checks Node.js and Docker, installs if missing (apt/brew)
+2. **Caesar** -- builds TypeScript, installs globally via npm
+3. **Vault** -- runs `caesar init` (master password, TLS cert, wallet), trusts CA in Firefox/NSS
+4. **Server** -- starts Docker Compose (MongoDB + Express), waits for health
+5. **Extension** -- builds React UI, packages `.xpi` via web-ext
 
 ### Uninstall
 
@@ -23,33 +49,37 @@ The installer checks dependencies, builds and installs Caesar globally, initiali
 ./scripts/uninstall.sh
 ```
 
+Removes Docker containers/images/volumes, uninstalls the npm package, deletes `~/.caesar/`, and removes the Caesar Vault CA from all Firefox and Zen Browser NSS trust stores.
+
 ## Quickstart
 
 ```bash
 caesar init                # Set master password, generate TLS cert, create wallet
 caesar start               # Start server via Docker
-caesar install-extension   # Build and load Firefox extension
+caesar launch              # Open Firefox/Zen with extension auto-loaded
 ```
 
 ## Architecture
 
-```
-Extension (Firefox) <--> HTTPS Express <--> MongoDB
-                                       <--> Helia IPFS (embedded)
-                                       <--> Ethereum Sepolia
-```
+![Caesar Architecture](arch.png)
 
-- **Extension**: React 19 + Vite + Tailwind. Manages entries, autofill, TOTP, password generation.
-- **Express**: Local HTTPS server on 127.0.0.1:9876. Self-signed TLS cert via mkcert.
-- **MongoDB**: Encrypted vault storage. Runs in Docker.
-- **Helia IPFS**: Embedded IPFS node for multi-device sync. Encrypted vault blobs stored on IPFS.
-- **Ethereum Sepolia**: On-chain commitment of vault hash + IPFS CID for integrity verification.
+- **Extension** -- React 19 + Vite + Tailwind. Manages entries, autofill, TOTP, password generation. Builds to a `.xpi` artifact via `web-ext`.
+- **Express** -- Local HTTPS server on `127.0.0.1:9876`. TLS via mkcert CA (auto-trusted in Firefox/NSS).
+- **MongoDB 7** -- Encrypted vault storage with healthcheck. Runs in Docker.
+- **Helia IPFS** -- Embedded node for multi-device sync. Encrypted vault blobs stored on IPFS.
+- **Ethereum Sepolia** -- On-chain commitment of vault hash + IPFS CID for multi-device sync.
 
 ## TLS / Certificates
 
-Caesar uses `mkcert` to generate a CA-signed certificate during `caesar init`. This means no manual browser exception is needed — Firefox trusts the cert natively. If mkcert fails, falls back to `selfsigned` (requires manual exception).
+Caesar uses `mkcert` to generate a CA-signed certificate during `caesar init`. The installer automatically trusts the CA in:
 
-## CLI Reference (30 commands)
+- Shared NSS database (`~/.pki/nssdb`)
+- All Firefox profile trust stores (`~/.mozilla/firefox/*/cert9.db`)
+- All Zen Browser profile trust stores (`~/.zen/*/cert9.db`)
+
+This means no manual browser exception is needed. If mkcert is unavailable, falls back to `selfsigned` (requires manual exception).
+
+## CLI Reference (34 commands)
 
 ### Vault Management
 
@@ -58,7 +88,7 @@ Caesar uses `mkcert` to generate a CA-signed certificate during `caesar init`. T
 | `caesar init` | Initialize vault, generate TLS cert, create wallet |
 | `caesar unlock` | Unlock vault and create a 15-minute session |
 | `caesar lock` | Clear the current session |
-| `caesar change-password` | Change master password |
+| `caesar change-password` | Change master password (re-encrypts all entries) |
 
 ### Entries
 
@@ -119,7 +149,7 @@ Caesar uses `mkcert` to generate a CA-signed certificate during `caesar init`. T
 |---------|-------------|
 | `caesar backup-salt <path>` | Backup Argon2 salt |
 | `caesar restore-salt <path>` | Restore Argon2 salt |
-| `caesar serve` | Start HTTPS server |
+| `caesar serve` | Start HTTPS server directly (no Docker) |
 
 ### Docker
 
@@ -127,23 +157,15 @@ Caesar uses `mkcert` to generate a CA-signed certificate during `caesar init`. T
 |---------|-------------|
 | `caesar start` | Start server via Docker |
 | `caesar stop` | Stop server |
-| `caesar install-extension` | Build Firefox extension and print load instructions |
 
-## Security Model
+### Extension
 
-**What Caesar protects against:**
-- Third-party server breaches (vault never leaves your machine unencrypted)
-- Password reuse (built-in zxcvbn strength detection)
-- Single point of failure (IPFS multi-device sync)
-- CSRF from web pages (X-Caesar-Client header requirement)
-- Empty vault brute force (verification blob validates password even with no entries)
+| Command | Description |
+|---------|-------------|
+| `caesar install-extension` | Build extension + package `.xpi` |
+| `caesar launch [-b browser]` | Open Firefox/Zen with extension auto-loaded via web-ext |
 
-**What Caesar does NOT protect against:**
-- Compromised device (if your machine is owned, the vault is too)
-- Phishing (Caesar warns about known phishing sites but can't catch all)
-- Brute force (rate limiting helps but Argon2id is the real defense)
-
-## Server Endpoints (37)
+## Server Endpoints (36)
 
 All authenticated endpoints require `Authorization: Bearer <token>` and `X-Caesar-Client: cli` headers.
 
@@ -171,8 +193,8 @@ All authenticated endpoints require `Authorization: Bearer <token>` and `X-Caesa
 | DELETE | `/folders/:id` | Delete folder |
 | GET | `/trash` | List deleted entries |
 | POST | `/trash/purge` | Purge old trash |
-| GET | `/generate?length=N` | Generate password |
-| GET | `/generate/passphrase` | Generate passphrase |
+| GET | `/generate?length=N` | Generate password (modulo-bias-free) |
+| GET | `/generate/passphrase` | Generate EFF wordlist passphrase |
 | POST | `/generate/history` | Save generation history |
 | GET | `/generate/history` | Get generation history |
 | DELETE | `/generate/history` | Clear generation history |
@@ -186,6 +208,43 @@ All authenticated endpoints require `Authorization: Bearer <token>` and `X-Caesa
 | POST | `/import` | Import vault |
 | GET | `/export/cli` | CLI export endpoint |
 
+## Security Model
+
+### What Caesar protects against
+
+- **Third-party server breaches** -- vault never leaves your machine unencrypted
+- **Password reuse** -- built-in zxcvbn strength detection
+- **Single point of failure** -- IPFS multi-device sync
+- **CSRF from web pages** -- `X-Caesar-Client` header requirement
+- **Empty vault brute force** -- verification blob validates password even with no entries
+- **Favicon tracking** -- letter-avatar avoids loading external favicons (no Google Favicon leak)
+- **XSS in content scripts** -- all dynamic HTML uses `esc()` (textContent-to-innerHTML escape)
+
+### What Caesar does NOT protect against
+
+- **Compromised device** -- if your machine is owned, the vault is too
+- **Phishing** -- warns about known phishing sites but can't catch all
+- **Brute force** -- rate limiting helps but Argon2id is the real defense
+
+### Cryptographic details
+
+| Layer | Algorithm | Parameters |
+|-------|-----------|------------|
+| Key derivation | Argon2id | 256 MB memory, 4 iterations, 1 parallelism, 32-byte output |
+| Encryption | AES-256-GCM | 12-byte IV, 16-byte auth tag |
+| Password generation | `crypto.randomBytes` | Modulo-bias-free rejection sampling |
+| Passphrase generation | EFF wordlist | `crypto.randomInt` index selection |
+| Session tokens | `crypto.randomBytes(32)` | 15-minute expiry |
+| Salt | `crypto.randomBytes(32)` | Per-vault, re-generated on password change |
+
+### CORS
+
+Restricted to `moz-extension://*` origins and `https://127.0.0.1:9876`. All other origins are rejected.
+
+### Password history
+
+When an entry's password is changed, the old password is re-encrypted with the new derivation key and appended to `passwordHistory` (capped at 5 entries). This happens on both CLI `update` and the `/entries/:name` endpoint.
+
 ## License
 
-ISC
+[GPL-3.0](LICENSE) — same as Bitwarden

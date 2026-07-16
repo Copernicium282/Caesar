@@ -5,8 +5,6 @@ out/
 dist/
 artifacts/
 .mimocode/
-
-package-lock.json
 *.log
 *.tsbuildinfo
 data/db/
